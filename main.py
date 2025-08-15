@@ -1,17 +1,13 @@
 from bs4 import BeautifulSoup
 import requests
+import toml
 from config import *
-
-# TODO: set up config toml
 
 
 def get_episode_links():
-    # FOREVER_DREAMING_URL = "https://transcripts.foreverdreaming.org/viewtopic.php?t=8296&sid=943ebb32f0511dfed8eaf1a1e89614ec"
-    # headers = {
-    #     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
-    # }
+    config = toml.load("config.toml")
 
-    resp = requests.get(FOREVER_DREAMING_URL, headers=HEADERS)
+    resp = requests.get(config.FOREVER_DREAMING_URL, headers=config.HEADERS)
     soup = BeautifulSoup(resp.text, "html.parser")
 
     episode_list_container = soup.find("div", class_="content")
@@ -30,15 +26,21 @@ def get_episode_links():
     return episode_links
 
 
-def get_ep_transcript(test_ep_URL):
+def get_ep_transcript(test_ep_url):
     pass
+
+    test_ep_url
+    resp = requests.get(test_ep_url, headers=config.HEADERS)
+    soup = BeautifulSoup(resp.text, "html.parser")
+    script = soup.find("div", class_="content")
+    return script.get_text()
 
 
 def main():
     episode_links = get_episode_links()
 
     print(episode_links)
-    test_ep_URL = episode_links["Welcome to the Hellmouth"]
+    test_ep_url = episode_links["Welcome to the Hellmouth"]
 
 
 if __name__ == "__main__":
