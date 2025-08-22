@@ -5,6 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
+.python-version
+Python
 
 # Virtual environments
 .venv
+
+# Script based
+transcripts/*
+script_changes.toml
