@@ -56,7 +56,7 @@ def save_transcript(episode, script):
         file.write(script)
 
 
-def main():
+def scraper():
     episode_links = get_episode_links()
 
     for episode in episode_links.keys():
@@ -66,4 +66,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    scraper()
