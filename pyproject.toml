@@ -8,4 +8,6 @@ dependencies = ["bs4",
                 "requests",
                 "toml",
                 "rapidfuzz",
-                "numpy"]
+                "numpy",
+                "openai",
+                "dotenv"]
