@@ -4,8 +4,9 @@ import rapidfuzz
 import numpy as np
 import toml
 
+
 def search_grep(lines, search_string):
-    search_string = "grep -Ri -C {lns} {string} ./transcripts".format(
+    search_string = "grep -Ri -C {lns} {string} ./scripts".format(
         string=search_string, lns=lines
     )
     os.system(search_string)
@@ -15,7 +16,7 @@ def ep_search_literal(
     search_string,
     episode="1x01 Welcome to the Hellmouth.txt",
 ):
-    with open("transcripts/" + episode) as f:
+    with open("scripts/" + episode) as f:
         script = f.read()
 
     for i, line in enumerate(script.splitlines()):
@@ -24,8 +25,9 @@ def ep_search_literal(
             print(line)
             print("\n")
 
+
 def search_literal(search_string):
-    for episode_path in os.scandir("transcripts/"):
+    for episode_path in os.scandir("scripts/"):
         if episode_path.is_file():
             episode_path = episode_path.path
 
@@ -34,10 +36,9 @@ def search_literal(search_string):
         ep_search_literal(search_string, episode)
 
 
-
 def ep_search_fuzz(search_string, episode="2x07 Lie to Me.txt", N=5):
     config = toml.load("config.toml")
-    with open("transcripts/" + episode) as f:
+    with open("scripts/" + episode) as f:
         script = f.read()
 
     splitlines = script.splitlines()
@@ -52,7 +53,7 @@ def ep_search_fuzz(search_string, episode="2x07 Lie to Me.txt", N=5):
 
     # Get values and print lines with scores
     top_values = fuzzy_sorted[0][top_indices]
-    
+
     if any(score >= config["SEARCH"]["fuzzy_cutoff"] for score in top_values):
         print("\n")
         print(f"**************\nEPISODE: {episode}\n-------")
@@ -62,13 +63,14 @@ def ep_search_fuzz(search_string, episode="2x07 Lie to Me.txt", N=5):
 
 
 def search_fuzzy(search_string):
-    for episode_path in os.scandir("transcripts/"):
+    for episode_path in os.scandir("scripts/"):
         if episode_path.is_file():
             episode_path = episode_path.path
 
         _, episode = episode_path.split("/")
 
         ep_search_fuzz(search_string, episode)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -77,8 +79,8 @@ if __name__ == "__main__":
     parser.add_argument("--mode", "--m", default="fuzzy", choices=["fuzzy", "literal"])
     parser.add_argument("--episode", "--e")
     args = parser.parse_args()
-    
-    #TODO implement context lines for fuzzy search + literal search.
+
+    # TODO implement context lines for fuzzy search + literal search.
 
     if args.mode == "fuzzy":
         if args.episode:
