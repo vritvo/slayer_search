@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import toml
-
+import re
 
 def get_episode_links():
     config = toml.load("config.toml")
@@ -38,6 +38,36 @@ def get_episode_links():
     return episode_links
 
 
+def standardize_dialogue_format(script):
+    """
+    Convert dialogue from 'Speaker: dialogue' format to standardized format:
+    SPEAKER
+    dialogue
+    """
+    
+    lines = script.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Look for pattern like "Speaker: dialogue" where Speaker doesn't contain spaces (usually)
+        # This regex matches a speaker name followed by colon and dialogue
+        match = re.match(r'^([A-Za-z][A-Za-z\s]*?):\s*(.+)$', line.strip())
+        
+        if match:
+            speaker = match.group(1).strip().upper()
+            dialogue = match.group(2).strip()
+            
+            # Add speaker on one line, dialogue on next
+            cleaned_lines.append(speaker)
+            if dialogue:  # Only add dialogue line if there's actual dialogue
+                cleaned_lines.append(dialogue)
+        else:
+            # Keep the line as-is if it doesn't match the speaker pattern
+            cleaned_lines.append(line)
+    
+    return '\n'.join(cleaned_lines)
+
+
 def get_ep_transcript(ep_url):
     config = toml.load("config.toml")
 
@@ -51,6 +81,9 @@ def get_ep_transcript(ep_url):
         _ = br.replace_with("\n")
 
     script = script_div.get_text()
+    
+    # Standardize the dialogue format
+    script = standardize_dialogue_format(script)
 
     return script
 
