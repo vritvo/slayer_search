@@ -30,8 +30,16 @@ def rank_ep_cos_sim(search_query: np.ndarray) -> list[tuple[float, str, str]]:
 
 
 if __name__ == "__main__":
-    # Expected: Giles talking about labyrinthine halls
-    search_query = "giles talking about how the building maze-like"
+    # Get search query from user input
+    user_input = input("Enter your search query: ").strip()
+    
+    if user_input == "":
+        search_query = "giles talking about how the building maze-like"
+        print("Using default search query for debugging")
+    else:
+        search_query = user_input
+    
+    print(f"Searching for: '{search_query}'\n")
     
     search_embedding = make_embedding(search_query)
     rank_output = rank_ep_cos_sim(search_embedding)
