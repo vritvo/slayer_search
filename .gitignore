@@ -8,10 +8,10 @@ wheels/
 .python-version
 Python
 .env
-
+.DS_Store
 # Virtual environments
 .venv
 
 # Script based
-transcripts/*
-script_changes.toml
+scripts/*
+embeddings.pkl

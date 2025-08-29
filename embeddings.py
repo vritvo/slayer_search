@@ -5,29 +5,30 @@ import pickle
 import numpy as np
 from utils import make_embedding
 
-# ep title, line #, embedding []
 
-
-def chunk_scripts():
-    # for file_name in os.listdir("scripts"):
-
+def chunk_scripts() -> list[tuple[str, int, str, np.ndarray]]:
+    """Process script chunks and create embeddings for semantic search."""
+    # TODO: Process all files in scripts directory
     file_name = "4x12 A New Man.txt"
     episode_embeddings = []
 
-    with open("scripts/" + file_name, "r") as f:
+    with open(f"scripts/{file_name}", "r") as f:
         script = f.read()
 
-    script_list = script.split("\n\n")
+    # Split script into chunks by double newlines. This keeps the speaker and dialogue together.
+    script_chunks = script.split("\n\n")
 
-    for i, l in enumerate(script_list):
-        if l.strip() == "":
+    for i, chunk in enumerate(script_chunks):
+        if chunk.strip() == "":
             continue
 
-        print(i)
+        print(f"Processing chunk {i}")
+        
+        # Create embedding for this chunk
+        embedding = make_embedding(chunk)
+        episode_embeddings.append((file_name, i, chunk, embedding))
 
-        e = make_embedding(l)
-        episode_embeddings.append((file_name, i, l, e))
-
+    # Save embeddings to pickle file
     with open("embeddings.pkl", "wb") as file:
         pickle.dump(episode_embeddings, file)
 
