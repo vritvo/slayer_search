@@ -48,4 +48,4 @@ if __name__ == "__main__":
         cos_sim, episode, line = r
         print(f"COSINE SIM: {cos_sim:.3f}")
         print(f"EPISODE: {episode}")
-        print(f"LINE: {line}\n")
+        print(f"LINE:\n {line}\n")
