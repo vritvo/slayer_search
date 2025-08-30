@@ -1,9 +1,7 @@
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
 import pickle
 import numpy as np
 from utils import make_embedding
+import toml
 
 
 def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndarray]]:
@@ -18,7 +16,8 @@ def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndar
     episode_embeddings = []
 
     # Process all files in the scripts directory
-    for file_name in os.listdir("scripts"):
+    # for file_name in os.listdir("scripts"):
+    for file_name in ["4x09 Something Blue.txt", "4x12 A New Man.txt"]:
         if not file_name.endswith(".txt"):
             continue
 
@@ -38,7 +37,9 @@ def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndar
             current_chunk = []
 
             for line in lines:
-                if line.strip().lower().startswith("cut to"):
+                if line.strip().lower().startswith(
+                    "cut to"
+                ) | line.strip().lower().startswith("(cut to"):
                     # If we have accumulated lines, save as a chunk
                     if current_chunk:
                         script_chunks.append("\n".join(current_chunk))
@@ -61,8 +62,9 @@ def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndar
             embedding = make_embedding(chunk)
             episode_embeddings.append((file_name, i, chunk, embedding))
 
+    embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
     # Save embeddings to pickle file with chunk_type in filename
-    filename = f"embeddings_{chunk_type}.pkl"
+    filename = f"{embeddings_folder}/embeddings_{chunk_type}.pkl"
     with open(filename, "wb") as file:
         pickle.dump(episode_embeddings, file)
 

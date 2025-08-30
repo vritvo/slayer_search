@@ -1,6 +1,7 @@
 import pickle
 import numpy as np
 from utils import make_embedding
+import toml
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -24,7 +25,8 @@ def rank_ep_cos_sim(
     if chunk_type not in ["line", "scene"]:
         raise ValueError("Invalid chunk_type. Must be 'line' or 'scene'.")
 
-    with open(f"embeddings_{chunk_type}.pkl", "rb") as file:
+    embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
+    with open(f"{embeddings_folder}/embeddings_{chunk_type}.pkl", "rb") as file:
         embeddings = pickle.load(file)
 
     cos_script = []

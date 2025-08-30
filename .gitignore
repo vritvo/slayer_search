@@ -14,4 +14,4 @@ Python
 
 # Script based
 scripts/*
-embeddings.pkl
+embeddings/*
