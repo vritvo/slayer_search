@@ -10,4 +10,5 @@ dependencies = ["bs4",
                 "rapidfuzz",
                 "numpy",
                 "openai",
-                "dotenv"]
+                "dotenv",
+                "pandas"]

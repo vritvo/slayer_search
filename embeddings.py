@@ -1,10 +1,10 @@
-import pickle
+import pandas as pd
 import numpy as np
 from utils import make_embedding
 import toml
 
 
-def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndarray]]:
+def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
     """Process script chunks and create embeddings for semantic search.
 
     Args:
@@ -13,7 +13,7 @@ def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndar
     if chunk_type not in ["line", "scene"]:
         raise ValueError("chunk_type must be either 'line' or 'scene'")
 
-    episode_embeddings = []
+    episode_data = []
 
     # Process all files in the scripts directory
     # for file_name in os.listdir("scripts"):
@@ -60,15 +60,23 @@ def chunk_scripts(chunk_type: str = "line") -> list[tuple[str, int, str, np.ndar
 
             # Create embedding for this chunk
             embedding = make_embedding(chunk)
-            episode_embeddings.append((file_name, i, chunk, embedding))
+            episode_data.append({
+                'file_name': file_name,
+                'chunk_index': i,
+                'chunk_text': chunk,
+                'embedding': embedding  # Already a list from make_embedding
+            })
 
+    # Create DataFrame from collected data
+    df = pd.DataFrame(episode_data)
+    
     embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
-    # Save embeddings to pickle file with chunk_type in filename
-    filename = f"{embeddings_folder}/embeddings_{chunk_type}.pkl"
-    with open(filename, "wb") as file:
-        pickle.dump(episode_embeddings, file)
-
-    return episode_embeddings
+    # Save embeddings to CSV file with chunk_type in filename
+    filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
+    df.to_csv(filename, index=False)
+    
+    print(f"Saved {len(df)} embeddings to {filename}")
+    return df
 
 
 if __name__ == "__main__":
