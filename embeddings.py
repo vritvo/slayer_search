@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from utils import make_embedding
 import toml
+import os
+from utils import make_embedding
 
 
 def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
@@ -16,8 +17,8 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
     episode_data = []
 
     # Process all files in the scripts directory
-    # for file_name in os.listdir("scripts"):
-    for file_name in ["4x09 Something Blue.txt", "4x12 A New Man.txt"]:
+    for file_name in os.listdir("scripts"):
+        # for file_name in ["4x09 Something Blue.txt", "4x12 A New Man.txt"]:
         if not file_name.endswith(".txt"):
             continue
 
@@ -60,21 +61,23 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
 
             # Create embedding for this chunk
             embedding = make_embedding(chunk)
-            episode_data.append({
-                'file_name': file_name,
-                'chunk_index': i,
-                'chunk_text': chunk,
-                'embedding': embedding  # Already a list from make_embedding
-            })
+            episode_data.append(
+                {
+                    "file_name": file_name,
+                    "chunk_index": i,
+                    "chunk_text": chunk,
+                    "embedding": embedding,  # Already a list from make_embedding
+                }
+            )
 
     # Create DataFrame from collected data
     df = pd.DataFrame(episode_data)
-    
+
     embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
     # Save embeddings to CSV file with chunk_type in filename
     filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
     df.to_csv(filename, index=False)
-    
+
     print(f"Saved {len(df)} embeddings to {filename}")
     return df
 
