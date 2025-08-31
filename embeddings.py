@@ -3,6 +3,27 @@ import numpy as np
 import toml
 import os
 from utils import make_embedding
+import argparse
+
+
+def log_oversized_chunk(file_name, chunk_index, chunk_length):
+    """Log an oversized chunk that couldn't be embedded."""
+    config = toml.load("config.toml")
+    logs_folder = config["LOGS_FOLDER"]
+
+    # Create logs folder if it doesn't exist
+    os.makedirs(logs_folder, exist_ok=True)
+
+    log_file = os.path.join(logs_folder, "oversized_chunks.log")
+
+    # Simple append to log file
+    with open(log_file, "a") as f:
+        from datetime import datetime
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(
+            f"{timestamp} - Oversized chunk skipped - File: {file_name}, Chunk: {chunk_index}, Length: {chunk_length} chars\n"
+        )
 
 
 def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
@@ -17,7 +38,11 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
     episode_data = []
 
     # Process all files in the scripts directory
-    for file_name in os.listdir("scripts"):
+    # for file_name in os.listdir("scripts"):
+    for file_name in [
+        "1x01 Welcome to the Hellmouth.txt",
+        "4x12 A New Man.txt",
+    ]:
         # for file_name in ["4x09 Something Blue.txt", "4x12 A New Man.txt"]:
         if not file_name.endswith(".txt"):
             continue
@@ -60,7 +85,18 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
             print(f"  Processing chunk {i}")
 
             # Create embedding for this chunk
-            embedding = make_embedding(chunk)
+            try:
+                embedding = make_embedding(chunk)
+            except Exception as e:
+                if "maximum context length" in str(e):
+                    log_oversized_chunk(file_name, i, len(chunk))
+                    print(
+                        f"Skipping oversized chunk: {file_name} (chunk {i}) - {len(chunk)} characters"
+                    )
+                    continue
+                else:
+                    raise e  # Re-raise other errors
+
             episode_data.append(
                 {
                     "file_name": file_name,
@@ -83,4 +119,10 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    chunk_scripts(chunk_type="scene")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--chunk_type", "--c", choices=["line", "scene"], default="scene"
+    )
+    args = parser.parse_args()
+
+    chunk_scripts(chunk_type=args.chunk_type)

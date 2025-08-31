@@ -4,6 +4,7 @@ from utils import make_embedding
 import toml
 import argparse
 
+
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     """Calculate cosine similarity between two vectors."""
 
@@ -13,11 +14,9 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     return dot_product / (norm_vec1 * norm_vec2)
 
 
-def rank_ep_cos_sim(
-    search_query: np.ndarray, chunk_type: str
-) -> pd.DataFrame:
+def rank_ep_cos_sim(search_query: np.ndarray, chunk_type: str) -> pd.DataFrame:
     """Rank episode lines by cosine similarity to search query embedding.
-    
+
     Args:
         search_query: The embedding vector for the search query.
         chunk_type: The type of chunking used for the embeddings (e.g., "line" or "scene").
@@ -28,28 +27,34 @@ def rank_ep_cos_sim(
 
     embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
     filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
-    
+
     # Load DataFrame from CSV
     df = pd.read_csv(filename)
-    
+
     # Convert embedding string (from csv) back to numpy arrays
     df["embedding_array"] = df.embedding.apply(eval).apply(np.array)
-    
+
     # Calculate cosine similarity for each row
-    df['cosine_similarity'] = df['embedding_array'].apply(
+    df["cosine_similarity"] = df["embedding_array"].apply(
         lambda embedding: cosine_similarity(search_query, embedding)
     )
-    
+
     # Sort by cosine similarity, highest first
-    df_sorted = df.sort_values('cosine_similarity', ascending=False)
-    
+    df_sorted = df.sort_values("cosine_similarity", ascending=False)
+
     return df_sorted
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Semantic search for episode lines")
     parser.add_argument("--query", "--q", type=str, help="Search query")
-    parser.add_argument("--chunk_type", "--c", type=str, help="Type of chunking (line or scene)")
+    parser.add_argument(
+        "--chunk_type",
+        "--c",
+        type=str,
+        help="Type of chunking (line or scene)",
+        default="line",
+    )
     args = parser.parse_args()
 
     # make sure chunk type is either line or scene
@@ -57,7 +62,6 @@ if __name__ == "__main__":
         raise ValueError("Invalid chunk_type. Must be 'line' or 'scene'.")
 
     print(f"Chunk type: {args.chunk_type}")
-
 
     if args.query:
         search_query = args.query
@@ -74,18 +78,18 @@ if __name__ == "__main__":
     print(f"Searching for: '{search_query}'\n")
 
     search_embedding = make_embedding(search_query)
-    result_df = rank_ep_cos_sim(search_embedding, chunk_type="scene")
+    result_df = rank_ep_cos_sim(search_embedding, chunk_type=args.chunk_type)
 
     # Display top 5 search results
     print("Top 5 search results:")
     print("-" * 50)
-    
+
     for idx in range(min(5, len(result_df))):
         row = result_df.iloc[idx]
-        similarity_score = row['cosine_similarity']
-        episode_name = row['file_name']
-        text_content = row['chunk_text']
-        
+        similarity_score = row["cosine_similarity"]
+        episode_name = row["file_name"]
+        text_content = row["chunk_text"]
+
         print(f"COSINE SIM: {similarity_score:.3f}")
         print(f"EPISODE: {episode_name}")
         print(f"TEXT:\n{text_content}\n")

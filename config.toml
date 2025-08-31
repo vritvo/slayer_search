@@ -2,6 +2,7 @@
 # Project Values
 SCRIPT_FOLDER = "scripts/"
 EMBEDDINGS_FOLDER = "embeddings/"
+LOGS_FOLDER = "logs/"
 # Web Scraping Values
 
 FOREVER_DREAMING_URL = "https://transcripts.foreverdreaming.org/viewtopic.php?t=8296&sid=943ebb32f0511dfed8eaf1a1e89614ec"

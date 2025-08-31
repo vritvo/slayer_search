@@ -9,6 +9,8 @@ wheels/
 Python
 .env
 .DS_Store
+logs/
+
 # Virtual environments
 .venv
 
