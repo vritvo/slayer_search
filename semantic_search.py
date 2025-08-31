@@ -19,11 +19,11 @@ def rank_ep_cos_sim(search_query: np.ndarray, chunk_type: str) -> pd.DataFrame:
 
     Args:
         search_query: The embedding vector for the search query.
-        chunk_type: The type of chunking used for the embeddings (e.g., "line" or "scene").
+        chunk_type: The type of chunking used for the embeddings (e.g., "line", "scene", or "window").
     """
 
-    if chunk_type not in ["line", "scene"]:
-        raise ValueError("Invalid chunk_type. Must be 'line' or 'scene'.")
+    if chunk_type not in ["line", "scene", "window"]:
+        raise ValueError("Invalid chunk_type. Must be 'line', 'scene', or 'window'.")
 
     embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
     filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
@@ -52,14 +52,14 @@ if __name__ == "__main__":
         "--chunk_type",
         "--c",
         type=str,
-        help="Type of chunking (line or scene)",
-        default="line",
+        help="Type of chunking (line, scene, or window)",
+        default="scene",
     )
     args = parser.parse_args()
 
-    # make sure chunk type is either line or scene
-    if args.chunk_type not in ["line", "scene"]:
-        raise ValueError("Invalid chunk_type. Must be 'line' or 'scene'.")
+    # make sure chunk type is either line, scene, or window
+    if args.chunk_type not in ["line", "scene", "window"]:
+        raise ValueError("Invalid chunk_type. Must be 'line', 'scene', or 'window'.")
 
     print(f"Chunk type: {args.chunk_type}")
 

@@ -30,10 +30,11 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
     """Process script chunks and create embeddings for semantic search.
 
     Args:
-        chunk_type: Either "line" (split on double newlines) or "scene" (split on "cut to")
+        chunk_type: Either "line" (split on double newlines), "scene" (split on "cut to"),
+                   or "window" (sliding window of lines)
     """
-    if chunk_type not in ["line", "scene"]:
-        raise ValueError("chunk_type must be either 'line' or 'scene'")
+    if chunk_type not in ["line", "scene", "window"]:
+        raise ValueError("chunk_type must be either 'line', 'scene', or 'window'")
 
     episode_data = []
 
@@ -77,6 +78,36 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
             # Add the final chunk if it exists
             if current_chunk:
                 script_chunks.append("\n".join(current_chunk))
+        elif chunk_type == "window":
+            # Load window configuration
+            config = toml.load("config.toml")
+            window_size = config["WINDOW"]["window_size"]
+            step_size = config["WINDOW"]["step_size"]
+
+            # Split script into lines and create sliding windows
+            lines = script.split("\n")
+            script_chunks = []
+
+            i = 0
+            while i < len(lines):
+                # Create window of lines
+                window_end = min(i + window_size, len(lines))
+                window_lines = lines[i:window_end]
+
+                # Only add non-empty chunks
+                chunk_text = "\n".join(window_lines).strip()
+                if chunk_text:
+                    script_chunks.append(chunk_text)
+
+                # Move window forward, but skip extra if current line is empty
+                if i < len(lines) and lines[i].strip() == "":
+                    i += step_size + 1  # Skip one extra line if empty
+                else:
+                    i += step_size
+
+                # Break if we've reached the end
+                if window_end >= len(lines):
+                    break
 
         for i, chunk in enumerate(script_chunks):
             if chunk.strip() == "":
@@ -121,7 +152,7 @@ def chunk_scripts(chunk_type: str = "line") -> pd.DataFrame:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--chunk_type", "--c", choices=["line", "scene"], default="scene"
+        "--chunk_type", "--c", choices=["line", "scene", "window"], default="scene"
     )
     args = parser.parse_args()
 
