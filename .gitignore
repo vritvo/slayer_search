@@ -17,3 +17,6 @@ logs/
 # Script based
 scripts/*
 embeddings/*
+
+# db
+vector_db.db
