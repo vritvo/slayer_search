@@ -3,6 +3,8 @@ import numpy as np
 from utils import make_embedding
 import toml
 import argparse
+import sqlite3
+import sqlite_vss
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -45,6 +47,44 @@ def rank_ep_cos_sim(search_query: np.ndarray, chunk_type: str) -> pd.DataFrame:
     return df_sorted
 
 
+def search_db(search_query: str, chunk_type: str = "scene"):
+    # connect
+    con = sqlite3.connect("./vector_db.db")
+
+    # Load sqlite-vss extension
+    con.enable_load_extension(True)
+    sqlite_vss.load(con)
+
+    cur = con.cursor()
+
+    # convert to np array and then to bytes (BLOB for sqlite)
+    search_vec = np.asarray(make_embedding(search_query), dtype=np.float32).tobytes()
+
+    # search using the VSS virtual table and join with main table
+    table_name = f"{chunk_type}_embeddings"
+    vss_table_name = f"{table_name}_vss"
+
+    rows = cur.execute(
+        f"""
+    SELECT e.file_name, e.chunk_index, e.chunk_text, v.distance
+    FROM {vss_table_name} v
+    JOIN {table_name} e ON e.rowid = v.rowid
+    WHERE vss_search(
+        v.embedding,
+        vss_search_params(?, 10)
+    )
+    ORDER BY v.distance
+    """,
+        (search_vec,),
+    ).fetchall()
+
+    for fname, idx, text, dist in rows:
+        print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
+        print("-----\n\n")
+
+    con.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Semantic search for episode lines")
     parser.add_argument("--query", "--q", type=str, help="Search query")
@@ -77,20 +117,4 @@ if __name__ == "__main__":
 
     print(f"Searching for: '{search_query}'\n")
 
-    search_embedding = make_embedding(search_query)
-    result_df = rank_ep_cos_sim(search_embedding, chunk_type=args.chunk_type)
-
-    # Display top 5 search results
-    print("Top 5 search results:")
-    print("-" * 50)
-
-    for idx in range(min(5, len(result_df))):
-        row = result_df.iloc[idx]
-        similarity_score = row["cosine_similarity"]
-        episode_name = row["file_name"]
-        text_content = row["chunk_text"]
-
-        print(f"COSINE SIM: {similarity_score:.3f}")
-        print(f"EPISODE: {episode_name}")
-        print(f"TEXT:\n{text_content}\n")
-        print("-" * 30)
+    search_db(search_query)

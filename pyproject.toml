@@ -11,4 +11,5 @@ dependencies = ["bs4",
                 "numpy",
                 "openai",
                 "dotenv",
-                "pandas"]
+                "pandas",
+                "sqlite-vss"]
