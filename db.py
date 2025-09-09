@@ -1,7 +1,5 @@
 import sqlite3
-import os
 import toml
-from pathlib import Path
 import json
 import sqlite_vss
 
@@ -33,8 +31,7 @@ def init_embeddings_table(chunk_type: str):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT,
             chunk_index INTEGER,
-            chunk_text TEXT,
-            embedding TEXT
+            chunk_text TEXT
         )
     """)
 
@@ -61,21 +58,16 @@ def insert_embedding_batch(chunk_type: str, embeddings_data):
     inserted_rows = []
 
     for item in embeddings_data:
-        # Convert embedding list to JSON string for storage
-        # SQLite has no native "array" type, so we serialize to text for storage.
-
-        embedding_json = json.dumps(item["embedding"])
         cur.execute(
             f"""
             INSERT INTO {table_name}
-            (file_name, chunk_index, chunk_text, embedding)
-            VALUES (?, ?, ?, ?)
+            (file_name, chunk_index, chunk_text)
+            VALUES (?, ?, ?)
         """,
             (
                 item["file_name"],
                 item["chunk_index"],
                 item["chunk_text"],
-                embedding_json,
             ),
         )
 
