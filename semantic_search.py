@@ -10,9 +10,9 @@ import sqlite_vss
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     """Calculate cosine similarity between two vectors."""
 
-    dot_product = np.dot(vec1, vec2)
-    norm_vec1 = np.linalg.norm(vec1)
-    norm_vec2 = np.linalg.norm(vec2)
+    dot_product = np.dot(vec1, vec2)  # dot product
+    norm_vec1 = np.linalg.norm(vec1)  # magnitude of the vector
+    norm_vec2 = np.linalg.norm(vec2)  # magnitude of the vector
     return dot_product / (norm_vec1 * norm_vec2)
 
 

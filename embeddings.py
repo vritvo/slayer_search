@@ -68,60 +68,44 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
         # Split script into chunks based on chunk_type
         if chunk_type == "line":
             # Split script into chunks by double newlines. This keeps the speaker and dialogue together.
-            script_chunks = script.split("\n\n")
+            all_chunks = script.split("\n\n")
         elif chunk_type == "scene":
             # Split on lines that start with "cut to" (case insensitive)
             lines = script.split("\n")
-            script_chunks = []
-            current_chunk = []
+
+            # Initialize variables.
+            # all_chunks = a list of complete text chunks, split at each scene.
+            # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
+
+            all_chunks = []  # all scene chunks
+            curr_chunk = []  # current scene chunk
+            all_window_chunks = []  # the window will be created from each scene chunk
 
             for line in lines:
+                # If we've hit a new scene, start a new chunk.
                 if line.strip().lower().startswith(
                     "cut to"
                 ) | line.strip().lower().startswith("(cut to"):
                     # If we have accumulated lines, save as a chunk
-                    if current_chunk:
-                        script_chunks.append("\n".join(current_chunk))
-                    # Start new chunk with the "cut to" line
-                    current_chunk = [line]
+                    if curr_chunk:
+                        all_chunks.append("\n".join(curr_chunk))
+
+                    # Since we've hit the end of a chunk, divide it into windowed chunks
+                    window_chunk = make_window_chunk("\n".join(curr_chunk))
+
+                    all_window_chunks.extend(window_chunk)
+                    # Reset current_scene_chunk to be this first line of the new scene
+                    curr_chunk = [line]
+
+                # If the new line is not a new scene, we append the line to the current scene list.
                 else:
-                    current_chunk.append(line)
+                    curr_chunk.append(line)
 
             # Add the final chunk if it exists
-            if current_chunk:
-                script_chunks.append("\n".join(current_chunk))
-        elif chunk_type == "window":
-            # Load window configuration
-            config = toml.load("config.toml")
-            window_size = config["WINDOW"]["window_size"]
-            step_size = config["WINDOW"]["step_size"]
+            if curr_chunk:
+                all_chunks.append("\n".join(curr_chunk))
 
-            # Split script into lines and create sliding windows
-            lines = script.split("\n")
-            script_chunks = []
-
-            i = 0
-            while i < len(lines):
-                # Create window of lines
-                window_end = min(i + window_size, len(lines))
-                window_lines = lines[i:window_end]
-
-                # Only add non-empty chunks
-                chunk_text = "\n".join(window_lines).strip()
-                if chunk_text:
-                    script_chunks.append(chunk_text)
-
-                # Move window forward, but skip extra if current line is empty
-                if i < len(lines) and lines[i].strip() == "":
-                    i += step_size + 1  # Skip one extra line if empty
-                else:
-                    i += step_size
-
-                # Break if we've reached the end
-                if window_end >= len(lines):
-                    break
-
-        for i, chunk in enumerate(script_chunks):
+        for i, chunk in enumerate(all_chunks):
             if chunk.strip() == "":
                 continue
 
@@ -166,6 +150,42 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
         if episode_data:
             count = insert_embedding_batch(chunk_type, episode_data)
             print(f"Inserted {count} embeddings into database")
+
+
+def make_window_chunk(chunk):
+    # Load window configuration
+    config = toml.load("config.toml")
+    window_size = config["WINDOW"]["window_size"]
+    step_size = config["WINDOW"]["step_size"]
+
+    # Split script into "formatted lines" (by double newlines)
+    # This keeps speaker names with their dialogue
+    formatted_lines = chunk.split("\n\n")
+
+    # Remove empty formatted lines
+    formatted_lines = [line.strip() for line in formatted_lines if line.strip()]
+
+    script_chunks = []
+    i = 0
+
+    while i < len(formatted_lines):
+        # Create window of formatted lines
+        window_end = min(i + window_size, len(formatted_lines))
+        window_formatted_lines = formatted_lines[i:window_end]
+
+        # Join the formatted lines back with double newlines
+        chunk_text = "\n\n".join(window_formatted_lines).strip()
+        if chunk_text:
+            script_chunks.append(chunk_text)
+
+        # Move window forward by step_size
+        i += step_size
+
+        # Break if we've reached the end
+        if window_end >= len(formatted_lines):
+            break
+
+    return script_chunks
 
 
 if __name__ == "__main__":
