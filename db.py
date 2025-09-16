@@ -18,16 +18,14 @@ def get_db_connection():
     return con
 
 
-def init_embeddings_tables(chunk_type: str):
-    """Initialize the embeddings table for the given chunk type."""
+def init_scene_tables(table_name: str = "scene_embeddings"):
+    """Initialize the scene embeddings table for the given chunk type."""
     con = get_db_connection()
     cur = con.cursor()
 
-    scene_table = f"{chunk_type}_embeddings"
-
     # Create the Scene table
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {scene_table} (
+        CREATE TABLE IF NOT EXISTS {table_name} (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT,
             chunk_index INTEGER,
@@ -35,12 +33,25 @@ def init_embeddings_tables(chunk_type: str):
         )
     """)
 
-    # Create the window_table:
-    window_table = "window_embedding"
-
-    # Create the Scene table
+    # Create virtual table for vector search using sqlite-vss
+    # Assuming embeddings are 1536 dimensions (OpenAI default)
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {window_table} (
+        CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
+            embedding(1536)
+        )
+    """)
+    con.commit()
+    con.close()
+
+
+def init_window_tables(table_name: str = "window_embeddings"):
+    """Initialize the window embeddings table and virtual table."""
+    con = get_db_connection()
+    cur = con.cursor()
+
+    # Create the window table
+    cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scene_id INTEGER,
             window_index INTEGER,
@@ -52,7 +63,7 @@ def init_embeddings_tables(chunk_type: str):
     # Create virtual table for vector search using sqlite-vss
     # Assuming embeddings are 1536 dimensions (OpenAI default)
     cur.execute(f"""
-        CREATE VIRTUAL TABLE IF NOT EXISTS {scene_table}_vss USING vss0(
+        CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
             embedding(1536)
         )
     """)

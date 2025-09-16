@@ -4,7 +4,8 @@ import os
 from utils import make_embedding
 import argparse
 from db import (
-    init_embeddings_tables,
+    init_scene_tables,
+    init_window_tables,
     insert_embedding_batch,
     clear_embeddings_table,
 )
@@ -32,7 +33,7 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
         )
 
 
-def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.DataFrame:
+def make_scene_chunks(output_type: str = "csv") -> pd.DataFrame:
     """Process script chunks and create embeddings for semantic search.
 
     Args:
@@ -40,16 +41,14 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
                    or "window" (sliding window of lines)
         output_type: Either "csv" or "db" for output format
     """
-    if chunk_type not in ["line", "scene", "window"]:
-        raise ValueError("chunk_type must be either 'line', 'scene', or 'window'")
-
     if output_type not in ["csv", "db"]:
         raise ValueError("output_type must be either 'csv' or 'db'")
 
+    init_scene_tables()
+
     # Initialize database table if using db output
     if output_type == "db":
-        init_embeddings_tables(chunk_type)
-        clear_embeddings_table(chunk_type)  # Clear existing data
+        clear_embeddings_table("scene")
 
     episode_data = []
 
@@ -66,41 +65,35 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
         with open(f"scripts/{file_name}", "r") as f:
             script = f.read()
 
-        # Split script into chunks based on chunk_type
-        if chunk_type == "line":
-            # Split script into chunks by double newlines. This keeps the speaker and dialogue together.
-            all_chunks = script.split("\n\n")
+        # Split on lines that start with "cut to" (case insensitive)
+        lines = script.split("\n")
 
-        elif chunk_type == "scene":
-            # Split on lines that start with "cut to" (case insensitive)
-            lines = script.split("\n")
+        # Initialize variables.
+        # all_chunks = a list of complete text chunks, split at each scene.
+        # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
 
-            # Initialize variables.
-            # all_chunks = a list of complete text chunks, split at each scene.
-            # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
+        all_chunks = []  # all scene chunks
+        curr_chunk = []  # current scene chunk
 
-            all_chunks = []  # all scene chunks
-            curr_chunk = []  # current scene chunk
+        for line in lines:
+            # If we've hit a new scene, start a new chunk.
+            if line.strip().lower().startswith(
+                "cut to"
+            ) | line.strip().lower().startswith("(cut to"):
+                # If we have accumulated lines, save as a chunk
+                if curr_chunk:
+                    all_chunks.append("\n".join(curr_chunk))
 
-            for line in lines:
-                # If we've hit a new scene, start a new chunk.
-                if line.strip().lower().startswith(
-                    "cut to"
-                ) | line.strip().lower().startswith("(cut to"):
-                    # If we have accumulated lines, save as a chunk
-                    if curr_chunk:
-                        all_chunks.append("\n".join(curr_chunk))
+                # Reset current_scene_chunk to be this first line of the new scene
+                curr_chunk = [line]
 
-                    # Reset current_scene_chunk to be this first line of the new scene
-                    curr_chunk = [line]
+            # If the new line is not a new scene, we append the line to the current scene list.
+            else:
+                curr_chunk.append(line)
 
-                # If the new line is not a new scene, we append the line to the current scene list.
-                else:
-                    curr_chunk.append(line)
-
-            # Add the final chunk if it exists
-            if curr_chunk:
-                all_chunks.append("\n".join(curr_chunk))
+        # Add the final chunk if it exists
+        if curr_chunk:
+            all_chunks.append("\n".join(curr_chunk))
 
         for i, chunk in enumerate(all_chunks):
             if chunk.strip() == "":
@@ -137,7 +130,7 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
 
         embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
         # Save embeddings to CSV file with chunk_type in filename
-        filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
+        filename = f"{embeddings_folder}/embeddings_scen.csv"
         df.to_csv(filename, index=False)
 
         print(f"Saved {len(df)} embeddings to {filename}")
@@ -145,11 +138,13 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
     elif output_type == "db":
         # Insert into database
         if episode_data:
-            count = insert_embedding_batch(chunk_type, episode_data)
+            count = insert_embedding_batch("scene", episode_data)
             print(f"Inserted {count} embeddings into database")
 
 
 def make_window_chunk(chunk):
+    init_window_tables()
+
     # Load window configuration
     config = toml.load("config.toml")
     window_size = config["WINDOW"]["window_size"]
@@ -261,9 +256,7 @@ def insert_window_db():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--chunk_type", "--c", choices=["line", "scene", "window"], default="scene"
-    )
+
     parser.add_argument(
         "--output_type",
         "--o",
@@ -273,12 +266,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(f"Chunk type: {args.chunk_type}, Output type: {args.output_type}")
-    chunk_scripts(chunk_type=args.chunk_type, output_type=args.output_type)
+    make_scene_chunks(output_type=args.output_type)
 
     insert_window_db()
-
-
-# 1. Read in scene level table
-# 2. iterate through the rows of the scene table, and chunk by window parameters
-# 3. Save that to a db table "window" with scene_id
