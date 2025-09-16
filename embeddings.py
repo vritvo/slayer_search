@@ -4,10 +4,12 @@ import os
 from utils import make_embedding
 import argparse
 from db import (
-    init_embeddings_table,
+    init_embeddings_tables,
     insert_embedding_batch,
     clear_embeddings_table,
 )
+import sqlite3
+from db import get_db_connection
 
 
 def log_oversized_chunk(file_name, chunk_index, chunk_length):
@@ -46,7 +48,7 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
 
     # Initialize database table if using db output
     if output_type == "db":
-        init_embeddings_table(chunk_type)
+        init_embeddings_tables(chunk_type)
         clear_embeddings_table(chunk_type)  # Clear existing data
 
     episode_data = []
@@ -55,7 +57,6 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
     # for file_name in os.listdir("scripts"):
     for file_name in [
         "1x01 Welcome to the Hellmouth.txt",
-        "4x12 A New Man.txt",
     ]:
         if not file_name.endswith(".txt"):
             continue
@@ -69,6 +70,7 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
         if chunk_type == "line":
             # Split script into chunks by double newlines. This keeps the speaker and dialogue together.
             all_chunks = script.split("\n\n")
+
         elif chunk_type == "scene":
             # Split on lines that start with "cut to" (case insensitive)
             lines = script.split("\n")
@@ -79,7 +81,6 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
 
             all_chunks = []  # all scene chunks
             curr_chunk = []  # current scene chunk
-            all_window_chunks = []  # the window will be created from each scene chunk
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
@@ -90,10 +91,6 @@ def chunk_scripts(chunk_type: str = "line", output_type: str = "csv") -> pd.Data
                     if curr_chunk:
                         all_chunks.append("\n".join(curr_chunk))
 
-                    # Since we've hit the end of a chunk, divide it into windowed chunks
-                    window_chunk = make_window_chunk("\n".join(curr_chunk))
-
-                    all_window_chunks.extend(window_chunk)
                     # Reset current_scene_chunk to be this first line of the new scene
                     curr_chunk = [line]
 
@@ -188,6 +185,80 @@ def make_window_chunk(chunk):
     return script_chunks
 
 
+def iter_scenes(batch_size: int = 500):
+    """Yield scene rows from the DB in batches as dicts."""
+    con = get_db_connection()
+    try:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("""
+            SELECT id, file_name, chunk_index, chunk_text
+            FROM scene_embeddings
+            ORDER BY file_name, chunk_index
+        """)
+        while True:
+            rows = cur.fetchmany(batch_size)
+            if not rows:
+                break
+            for r in rows:
+                yield {
+                    "scene_id": r["id"],
+                    "file_name": r["file_name"],
+                    "scene_index": r["chunk_index"],
+                    "text": r["chunk_text"],
+                }
+
+            con.commit()
+
+    except Exception as e:
+        print(f"Error in iter_scenes: {e}")
+    finally:
+        con.close()
+
+
+def iter_windows_from_scenes():
+    """Example: read each scene, make windows, do something with them."""
+    for scene in iter_scenes():
+        windows = make_window_chunk(scene["text"])  # your function
+        # do whatever you want with windows (insert to DB, write CSV, etc.)
+        for w_idx, w_text in enumerate(windows):
+            yield {
+                "scene_id": scene["scene_id"],
+                "window_index": w_idx,
+                "window_text": w_text,
+                "file_name": scene["file_name"],
+            }
+
+
+def insert_window_db():
+    con = get_db_connection()
+    cur = con.cursor()
+
+    table_name = "window_embedding"
+    try:
+        for row in iter_windows_from_scenes():
+            cur.execute(
+                f"""
+                INSERT INTO {table_name}
+                (scene_id, window_index, window_text, file_name)
+                VALUES (?, ?, ?, ?)
+            """,
+                (
+                    row["scene_id"],
+                    row["window_index"],
+                    row["window_text"],
+                    row["file_name"],
+                ),
+            )
+
+        con.commit()
+
+    except Exception as e:
+        print(f"Error in insert_window_db: {e}")
+    finally:
+        con.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -204,3 +275,10 @@ if __name__ == "__main__":
 
     print(f"Chunk type: {args.chunk_type}, Output type: {args.output_type}")
     chunk_scripts(chunk_type=args.chunk_type, output_type=args.output_type)
+
+    insert_window_db()
+
+
+# 1. Read in scene level table
+# 2. iterate through the rows of the scene table, and chunk by window parameters
+# 3. Save that to a db table "window" with scene_id

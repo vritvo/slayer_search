@@ -18,16 +18,16 @@ def get_db_connection():
     return con
 
 
-def init_embeddings_table(chunk_type: str):
+def init_embeddings_tables(chunk_type: str):
     """Initialize the embeddings table for the given chunk type."""
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = f"{chunk_type}_embeddings"
+    scene_table = f"{chunk_type}_embeddings"
 
-    # Create the main table
+    # Create the Scene table
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE IF NOT EXISTS {scene_table} (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT,
             chunk_index INTEGER,
@@ -35,10 +35,24 @@ def init_embeddings_table(chunk_type: str):
         )
     """)
 
+    # Create the window_table:
+    window_table = "window_embedding"
+
+    # Create the Scene table
+    cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {window_table} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scene_id INTEGER,
+            window_index INTEGER,
+            window_text TEXT,
+            file_name TEXT
+        )
+    """)
+
     # Create virtual table for vector search using sqlite-vss
     # Assuming embeddings are 1536 dimensions (OpenAI default)
     cur.execute(f"""
-        CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
+        CREATE VIRTUAL TABLE IF NOT EXISTS {scene_table}_vss USING vss0(
             embedding(1536)
         )
     """)
