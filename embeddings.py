@@ -1,4 +1,3 @@
-import pandas as pd
 import toml
 import os
 from utils import make_embedding
@@ -33,22 +32,13 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
         )
 
 
-def make_scene_chunks(output_type: str = "csv") -> pd.DataFrame:
-    """Process script chunks and create embeddings for semantic search.
+def make_scene_chunks():
+    """Process script chunks and create embeddings for semantic search."""
 
-    Args:
-        chunk_type: Either "line" (split on double newlines), "scene" (split on "cut to"),
-                   or "window" (sliding window of lines)
-        output_type: Either "csv" or "db" for output format
-    """
-    if output_type not in ["csv", "db"]:
-        raise ValueError("output_type must be either 'csv' or 'db'")
+    init_scene_tables("scene")
 
-    init_scene_tables()
-
-    # Initialize database table if using db output
-    if output_type == "db":
-        clear_embeddings_table("scene")
+    # Clear existing data
+    clear_embeddings_table("scene")
 
     episode_data = []
 
@@ -123,23 +113,10 @@ def make_scene_chunks(output_type: str = "csv") -> pd.DataFrame:
                 }
             )
 
-    # Output based on type
-    if output_type == "csv":
-        # Create DataFrame from collected data
-        df = pd.DataFrame(episode_data)
-
-        embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
-        # Save embeddings to CSV file with chunk_type in filename
-        filename = f"{embeddings_folder}/embeddings_scen.csv"
-        df.to_csv(filename, index=False)
-
-        print(f"Saved {len(df)} embeddings to {filename}")
-
-    elif output_type == "db":
-        # Insert into database
-        if episode_data:
-            count = insert_embedding_batch("scene", episode_data)
-            print(f"Inserted {count} embeddings into database")
+    # Insert into database
+    if episode_data:
+        count = insert_embedding_batch("scene", episode_data)
+        print(f"Inserted {count} embeddings into database")
 
 
 def make_window_chunk(chunk):
@@ -255,17 +232,6 @@ def insert_window_db():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--output_type",
-        "--o",
-        choices=["csv", "db"],
-        default="db",
-        help="Output format: csv file or database",
-    )
-    args = parser.parse_args()
-
-    make_scene_chunks(output_type=args.output_type)
+    make_scene_chunks()
 
     insert_window_db()

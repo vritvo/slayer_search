@@ -16,37 +16,6 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     return dot_product / (norm_vec1 * norm_vec2)
 
 
-def rank_ep_cos_sim(search_query: np.ndarray, chunk_type: str) -> pd.DataFrame:
-    """Rank episode lines by cosine similarity to search query embedding.
-
-    Args:
-        search_query: The embedding vector for the search query.
-        chunk_type: The type of chunking used for the embeddings (e.g., "line", "scene", or "window").
-    """
-
-    if chunk_type not in ["line", "scene", "window"]:
-        raise ValueError("Invalid chunk_type. Must be 'line', 'scene', or 'window'.")
-
-    embeddings_folder = toml.load("config.toml")["EMBEDDINGS_FOLDER"]
-    filename = f"{embeddings_folder}/embeddings_{chunk_type}.csv"
-
-    # Load DataFrame from CSV
-    df = pd.read_csv(filename)
-
-    # Convert embedding string (from csv) back to numpy arrays
-    df["embedding_array"] = df.embedding.apply(eval).apply(np.array)
-
-    # Calculate cosine similarity for each row
-    df["cosine_similarity"] = df["embedding_array"].apply(
-        lambda embedding: cosine_similarity(search_query, embedding)
-    )
-
-    # Sort by cosine similarity, highest first
-    df_sorted = df.sort_values("cosine_similarity", ascending=False)
-
-    return df_sorted
-
-
 def search_db(search_query: str, chunk_type: str = "scene"):
     # connect
     con = sqlite3.connect("./vector_db.db")
@@ -88,6 +57,8 @@ def search_db(search_query: str, chunk_type: str = "scene"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Semantic search for episode lines")
     parser.add_argument("--query", "--q", type=str, help="Search query")
+
+    # TODO: this parser is not necessary anymore, will need to process of how this works.
     parser.add_argument(
         "--chunk_type",
         "--c",
