@@ -18,8 +18,8 @@ def get_db_connection():
     return con
 
 
-def init_scene_tables(table_name: str = "scene_embeddings"):
-    """Initialize the scene embeddings table for the given chunk type."""
+def init_scene_tables(table_name: str = "scene"):
+    """Initialize the scene table and VSS virtual table for the given table name."""
     con = get_db_connection()
     cur = con.cursor()
 
@@ -44,8 +44,8 @@ def init_scene_tables(table_name: str = "scene_embeddings"):
     con.close()
 
 
-def init_window_tables(table_name: str = "window_embeddings"):
-    """Initialize the window embeddings table and virtual table."""
+def init_window_tables(table_name: str = "window"):
+    """Initialize the window table and VSS virtual table for the given table name."""
     con = get_db_connection()
     cur = con.cursor()
 
@@ -71,61 +71,31 @@ def init_window_tables(table_name: str = "window_embeddings"):
     con.close()
 
 
-def insert_embedding_batch(chunk_type: str, embeddings_data):
-    """Insert a batch of embeddings into the database."""
+def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
+    """Insert a single embedding into the VSS virtual table."""
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = f"{chunk_type}_embeddings"
+    table_name = chunk_type
     vss_table_name = f"{table_name}_vss"
 
-    # Insert into main table first and collect row IDs
-    inserted_rows = []
-
-    for item in embeddings_data:
-        cur.execute(
-            f"""
-            INSERT INTO {table_name}
-            (file_name, chunk_index, chunk_text)
-            VALUES (?, ?, ?)
-        """,
-            (
-                item["file_name"],
-                item["chunk_index"],
-                item["chunk_text"],
-            ),
-        )
-
-        # Save (row_id, raw embedding) for virtual table
-        row_id = cur.lastrowid
-        inserted_rows.append((row_id, item["embedding"]))
-
-    # Insert into VSS table for vector search
-    for row_id, embedding in inserted_rows:
-        cur.execute(
-            f"""
-            INSERT INTO {vss_table_name}(rowid, embedding)
-            VALUES (?, ?)
-        """,
-            (row_id, json.dumps(embedding)),
-        )
+    cur.execute(
+        f"""
+        INSERT INTO {vss_table_name}(rowid, embedding)
+        VALUES (?, ?)
+    """,
+        (row_id, json.dumps(embedding)),
+    )
 
     con.commit()
     con.close()
 
-    return len(embeddings_data)
 
-
-def clear_embeddings_table(chunk_type: str):
-    """Clear all data from the embeddings table."""
+def clear_table(table_name):
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = f"{chunk_type}_embeddings"
-    vss_table_name = f"{table_name}_vss"
-
     cur.execute(f"DELETE FROM {table_name}")
-    cur.execute(f"DELETE FROM {vss_table_name}")
 
     con.commit()
     con.close()

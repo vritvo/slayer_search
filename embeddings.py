@@ -5,8 +5,8 @@ import argparse
 from db import (
     init_scene_tables,
     init_window_tables,
-    insert_embedding_batch,
-    clear_embeddings_table,
+    insert_into_vss_table,
+    clear_table,
 )
 import sqlite3
 from db import get_db_connection
@@ -33,90 +33,135 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
 
 
 def make_scene_chunks():
-    """Process script chunks and create embeddings for semantic search."""
+    """Process script chunks and insert them row-by-row into the database."""
 
     init_scene_tables("scene")
 
     # Clear existing data
-    clear_embeddings_table("scene")
+    clear_table("scene")
 
-    episode_data = []
+    con = get_db_connection()
+    cur = con.cursor()
 
-    # Process all files in the scripts directory
-    # for file_name in os.listdir("scripts"):
-    for file_name in [
-        "1x01 Welcome to the Hellmouth.txt",
-    ]:
-        if not file_name.endswith(".txt"):
-            continue
+    table_name = "scene"
 
-        print(f"Processing file: {file_name}")
-
-        with open(f"scripts/{file_name}", "r") as f:
-            script = f.read()
-
-        # Split on lines that start with "cut to" (case insensitive)
-        lines = script.split("\n")
-
-        # Initialize variables.
-        # all_chunks = a list of complete text chunks, split at each scene.
-        # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
-
-        all_chunks = []  # all scene chunks
-        curr_chunk = []  # current scene chunk
-
-        for line in lines:
-            # If we've hit a new scene, start a new chunk.
-            if line.strip().lower().startswith(
-                "cut to"
-            ) | line.strip().lower().startswith("(cut to"):
-                # If we have accumulated lines, save as a chunk
-                if curr_chunk:
-                    all_chunks.append("\n".join(curr_chunk))
-
-                # Reset current_scene_chunk to be this first line of the new scene
-                curr_chunk = [line]
-
-            # If the new line is not a new scene, we append the line to the current scene list.
-            else:
-                curr_chunk.append(line)
-
-        # Add the final chunk if it exists
-        if curr_chunk:
-            all_chunks.append("\n".join(curr_chunk))
-
-        for i, chunk in enumerate(all_chunks):
-            if chunk.strip() == "":
+    try:
+        # Process all files in the scripts directory
+        # for file_name in os.listdir("scripts"):
+        for file_name in [
+            "1x01 Welcome to the Hellmouth.txt",
+            "4x12 A New Man.txt",
+        ]:
+            if not file_name.endswith(".txt"):
                 continue
 
-            print(f"  Processing chunk {i}")
+            print(f"Splitting file: {file_name}")
 
-            # Create embedding for this chunk
-            try:
-                embedding = make_embedding(chunk)
-            except Exception as e:
-                if "maximum context length" in str(e):
-                    log_oversized_chunk(file_name, i, len(chunk))
-                    print(
-                        f"Skipping oversized chunk: {file_name} (chunk {i}) - {len(chunk)} characters"
-                    )
-                    continue
+            with open(f"scripts/{file_name}", "r") as f:
+                script = f.read()
+
+            # Split on lines that start with "cut to" (case insensitive)
+            lines = script.split("\n")
+
+            # Initialize variables.
+            # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
+            curr_chunk = []  # current scene chunk
+            chunk_index = 0
+
+            for line in lines:
+                # If we've hit a new scene, start a new chunk.
+                if line.strip().lower().startswith(
+                    "cut to"
+                ) | line.strip().lower().startswith("(cut to"):
+                    # If we have accumulated lines, save as a chunk and insert into DB
+                    if curr_chunk:
+                        chunk_text = "\n".join(curr_chunk).strip()
+                        if chunk_text:
+                            print(f"  Splitting chunk {chunk_index}")
+
+                            # Insert into main table
+                            cur.execute(
+                                f"""
+                                INSERT INTO {table_name}
+                                (file_name, chunk_index, chunk_text)
+                                VALUES (?, ?, ?)
+                            """,
+                                (
+                                    file_name,
+                                    chunk_index,
+                                    chunk_text,
+                                ),
+                            )
+                            chunk_index += 1
+
+                    # Reset current_scene_chunk to be this first line of the new scene
+                    curr_chunk = [line]
+
+                # If the new line is not a new scene, we append the line to the current scene list.
                 else:
-                    raise e  # Re-raise other errors
+                    curr_chunk.append(line)
 
-            episode_data.append(
-                {
-                    "file_name": file_name,
-                    "chunk_index": i,
-                    "chunk_text": chunk,
-                    "embedding": embedding,  # Already a list from make_embedding
-                }
-            )
+            # Add the final chunk if it exists
+            if curr_chunk:
+                chunk_text = "\n".join(curr_chunk).strip()
+                if chunk_text:
+                    print(f"  Processing chunk {chunk_index}")
 
-    # Insert into database
-    if episode_data:
-        count = insert_embedding_batch("scene", episode_data)
-        print(f"Inserted {count} embeddings into database")
+                    # Insert into main table
+                    cur.execute(
+                        f"""
+                        INSERT INTO {table_name}
+                        (file_name, chunk_index, chunk_text)
+                        VALUES (?, ?, ?)
+                    """,
+                        (
+                            file_name,
+                            chunk_index,
+                            chunk_text,
+                        ),
+                    )
+
+        con.commit()
+        print(f"Successfully inserted scene chunks into table: `{table_name}`")
+
+    except Exception as e:
+        print(f"Error in make_scene_chunks: {e}")
+    finally:
+        con.close()
+
+
+def make_embeddings(chunk_type: str = "scene"):
+    """Create embeddings for the specified chunk type and insert into DB."""
+
+    # TODO: this whole function is set up for scene, but argument could be other than scene.
+    clear_table(f"{chunk_type}_vss")
+
+    for scene_row in iter_scenes():
+        chunk = scene_row["text"]
+
+        # print episode, scene number, and chunk id being processed.
+        print(
+            f"Processing {scene_row['file_name']} scene {scene_row['scene_index']} (ID {scene_row['scene_id']})"
+        )
+
+        try:
+            embedding = make_embedding(chunk)
+        except Exception as e:
+            if "maximum context length" in str(e):
+                log_oversized_chunk(
+                    scene_row["file_name"], scene_row["chunk_index"], len(chunk)
+                )
+                print(
+                    f"Skipping oversized chunk: {scene_row['file_name']} (chunk {scene_row['chunk_index']}) - {len(chunk)} characters"
+                )
+                continue
+            else:
+                raise e  # Re-raise other errors
+
+        # insert into db
+
+        insert_into_vss_table(chunk_type, scene_row["scene_id"], embedding)
+        # Todo: is that the right index?
 
 
 def make_window_chunk(chunk):
@@ -165,7 +210,7 @@ def iter_scenes(batch_size: int = 500):
         cur = con.cursor()
         cur.execute("""
             SELECT id, file_name, chunk_index, chunk_text
-            FROM scene_embeddings
+            FROM scene
             ORDER BY file_name, chunk_index
         """)
         while True:
@@ -206,7 +251,7 @@ def insert_window_db():
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = "window_embedding"
+    table_name = "window"
     try:
         for row in iter_windows_from_scenes():
             cur.execute(
@@ -224,6 +269,7 @@ def insert_window_db():
             )
 
         con.commit()
+        print(f"Successfully inserted window chunks into table: `{table_name}`")
 
     except Exception as e:
         print(f"Error in insert_window_db: {e}")
@@ -232,6 +278,6 @@ def insert_window_db():
 
 
 if __name__ == "__main__":
-    make_scene_chunks()
-
+    make_scene_chunks()  # Test the refactored function
     insert_window_db()
+    make_embeddings("scene")

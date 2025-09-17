@@ -30,12 +30,21 @@ def search_db(search_query: str, chunk_type: str = "scene"):
     search_vec = np.asarray(make_embedding(search_query), dtype=np.float32).tobytes()
 
     # search using the VSS virtual table and join with main table
-    table_name = f"{chunk_type}_embeddings"
+    table_name = chunk_type
     vss_table_name = f"{table_name}_vss"
+
+    # TODO: change the column names so they're standardized.
+    # Handle different table schemas
+    if chunk_type == "window":
+        index_col = "window_index"
+        text_col = "window_text"
+    else:  # scene or other chunk types
+        index_col = "chunk_index"
+        text_col = "chunk_text"
 
     rows = cur.execute(
         f"""
-    SELECT e.file_name, e.chunk_index, e.chunk_text, v.distance
+    SELECT e.file_name, e.{index_col}, e.{text_col}, v.distance
     FROM {vss_table_name} v
     JOIN {table_name} e ON e.rowid = v.rowid
     WHERE vss_search(
