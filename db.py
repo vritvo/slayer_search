@@ -26,10 +26,10 @@ def init_scene_tables(table_name: str = "scene"):
     # Create the Scene table
     cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scene_id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT,
-            chunk_index INTEGER,
-            chunk_text TEXT
+            scene_id_in_episode INTEGER,
+            scene_text TEXT
         )
     """)
 
@@ -52,9 +52,9 @@ def init_window_tables(table_name: str = "window"):
     # Create the window table
     cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            window_id INTEGER PRIMARY KEY AUTOINCREMENT,
             scene_id INTEGER,
-            window_index INTEGER,
+            window_id_in_scene INTEGER,
             window_text TEXT,
             file_name TEXT
         )

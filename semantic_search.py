@@ -18,11 +18,14 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
 
 def search_db(search_query: str, chunk_type: str = "scene"):
     # connect
-    con = sqlite3.connect("./vector_db.db")
+    config = toml.load("config.toml")
+    db_path = config.get("DB_PATH")
+    con = sqlite3.connect(db_path)
 
     # Load sqlite-vss extension
     con.enable_load_extension(True)
     sqlite_vss.load(con)
+    con.enable_load_extension(False)
 
     cur = con.cursor()
 
@@ -33,14 +36,13 @@ def search_db(search_query: str, chunk_type: str = "scene"):
     table_name = chunk_type
     vss_table_name = f"{table_name}_vss"
 
-    # TODO: change the column names so they're standardized.
-    # Handle different table schemas
+    # Handle different table schemas with standardized column names
     if chunk_type == "window":
-        index_col = "window_index"
+        index_col = "window_id_in_scene"
         text_col = "window_text"
     else:  # scene or other chunk types
-        index_col = "chunk_index"
-        text_col = "chunk_text"
+        index_col = "scene_id_in_episode"
+        text_col = "scene_text"
 
     rows = cur.execute(
         f"""

@@ -12,6 +12,7 @@ import sqlite3
 from db import get_db_connection
 
 
+
 def log_oversized_chunk(file_name, chunk_index, chunk_length):
     """Log an oversized chunk that couldn't be embedded."""
     config = toml.load("config.toml")
@@ -49,7 +50,6 @@ def make_scene_chunks():
         # Process all files in the scripts directory
         # for file_name in os.listdir("scripts"):
         for file_name in [
-            "1x01 Welcome to the Hellmouth.txt",
             "4x12 A New Man.txt",
         ]:
             if not file_name.endswith(".txt"):
@@ -83,7 +83,7 @@ def make_scene_chunks():
                             cur.execute(
                                 f"""
                                 INSERT INTO {table_name}
-                                (file_name, chunk_index, chunk_text)
+                                (file_name, scene_id_in_episode, scene_text)
                                 VALUES (?, ?, ?)
                             """,
                                 (
@@ -111,7 +111,7 @@ def make_scene_chunks():
                     cur.execute(
                         f"""
                         INSERT INTO {table_name}
-                        (file_name, chunk_index, chunk_text)
+                        (file_name, scene_id_in_episode, scene_text)
                         VALUES (?, ?, ?)
                     """,
                         (
@@ -133,35 +133,52 @@ def make_scene_chunks():
 def make_embeddings(chunk_type: str = "scene"):
     """Create embeddings for the specified chunk type and insert into DB."""
 
-    # TODO: this whole function is set up for scene, but argument could be other than scene.
     clear_table(f"{chunk_type}_vss")
 
-    for scene_row in iter_scenes():
-        chunk = scene_row["text"]
+    if chunk_type == "scene":
+        # Collect all scene data first to avoid connection conflicts
+        iter_chunk = list(iter_scenes())
+        index_field = "scene_id_in_episode"
+        id_field = "scene_id"
 
-        # print episode, scene number, and chunk id being processed.
-        print(
-            f"Processing {scene_row['file_name']} scene {scene_row['scene_index']} (ID {scene_row['scene_id']})"
-        )
+    elif chunk_type == "window":
+        # Collect all window data first to avoid connection conflicts
+        iter_chunk = list(iter_windows())
+        index_field = "window_id_in_scene"
+        id_field = "window_id"
+    else:
+        raise ValueError("Invalid chunk_type. Must be 'scene' or 'window'.")
+
+    # Process the collected data
+    for db_chunk_row in iter_chunk:
+        chunk = db_chunk_row["text"]
+
+        # print episode, chunk info, and chunk id being processed.
+        if chunk_type == "scene":
+            print(
+                f"Processing {db_chunk_row['file_name']} scene {db_chunk_row[index_field]} (ID {db_chunk_row[id_field]})"
+            )
+        else:  # window
+            print(
+                f"Processing {db_chunk_row['file_name']} window {db_chunk_row[index_field]} from scene {db_chunk_row['scene_id']} (ID {db_chunk_row[id_field]})"
+            )
 
         try:
             embedding = make_embedding(chunk)
         except Exception as e:
             if "maximum context length" in str(e):
                 log_oversized_chunk(
-                    scene_row["file_name"], scene_row["chunk_index"], len(chunk)
+                    db_chunk_row["file_name"], db_chunk_row[index_field], len(chunk)
                 )
                 print(
-                    f"Skipping oversized chunk: {scene_row['file_name']} (chunk {scene_row['chunk_index']}) - {len(chunk)} characters"
+                    f"Skipping oversized chunk: {db_chunk_row['file_name']} ({chunk_type} {db_chunk_row[index_field]}) - {len(chunk)} characters"
                 )
                 continue
             else:
                 raise e  # Re-raise other errors
 
         # insert into db
-
-        insert_into_vss_table(chunk_type, scene_row["scene_id"], embedding)
-        # Todo: is that the right index?
+        insert_into_vss_table(chunk_type, db_chunk_row[id_field], embedding)
 
 
 def make_window_chunk(chunk):
@@ -209,9 +226,9 @@ def iter_scenes(batch_size: int = 500):
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT id, file_name, chunk_index, chunk_text
+            SELECT scene_id, file_name, scene_id_in_episode, scene_text
             FROM scene
-            ORDER BY file_name, chunk_index
+            ORDER BY file_name, scene_id_in_episode
         """)
         while True:
             rows = cur.fetchmany(batch_size)
@@ -219,16 +236,48 @@ def iter_scenes(batch_size: int = 500):
                 break
             for r in rows:
                 yield {
-                    "scene_id": r["id"],
+                    "scene_id": r["scene_id"],
                     "file_name": r["file_name"],
-                    "scene_index": r["chunk_index"],
-                    "text": r["chunk_text"],
+                    "scene_id_in_episode": r["scene_id_in_episode"],
+                    "text": r["scene_text"],
                 }
 
             con.commit()
 
     except Exception as e:
         print(f"Error in iter_scenes: {e}")
+    finally:
+        con.close()
+
+
+def iter_windows(batch_size: int = 500):
+    """Yield window rows from the DB in batches as dicts."""
+    con = get_db_connection()
+    try:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("""
+            SELECT window_id, scene_id, window_id_in_scene, window_text, file_name
+            FROM window
+            ORDER BY file_name, scene_id, window_id_in_scene
+        """)
+        while True:
+            rows = cur.fetchmany(batch_size)
+            if not rows:
+                break
+            for r in rows:
+                yield {
+                    "window_id": r["window_id"],
+                    "scene_id": r["scene_id"],
+                    "window_id_in_scene": r["window_id_in_scene"],
+                    "text": r["window_text"],
+                    "file_name": r["file_name"],
+                }
+
+            con.commit()
+
+    except Exception as e:
+        print(f"Error in iter_windows: {e}")
     finally:
         con.close()
 
@@ -241,7 +290,7 @@ def iter_windows_from_scenes():
         for w_idx, w_text in enumerate(windows):
             yield {
                 "scene_id": scene["scene_id"],
-                "window_index": w_idx,
+                "window_id_in_scene": w_idx,
                 "window_text": w_text,
                 "file_name": scene["file_name"],
             }
@@ -257,12 +306,12 @@ def insert_window_db():
             cur.execute(
                 f"""
                 INSERT INTO {table_name}
-                (scene_id, window_index, window_text, file_name)
+                (scene_id, window_id_in_scene, window_text, file_name)
                 VALUES (?, ?, ?, ?)
             """,
                 (
                     row["scene_id"],
-                    row["window_index"],
+                    row["window_id_in_scene"],
                     row["window_text"],
                     row["file_name"],
                 ),
@@ -278,6 +327,9 @@ def insert_window_db():
 
 
 if __name__ == "__main__":
-    make_scene_chunks()  # Test the refactored function
-    insert_window_db()
-    make_embeddings("scene")
+    make_scene_chunks()  # Create scene chunks in database
+    insert_window_db()  # Create window chunks in database
+    make_embeddings("scene")  # Create embeddings for scene chunks
+    make_embeddings("window")  # Create embeddings for window chunks
+
+
