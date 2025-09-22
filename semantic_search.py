@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from utils import make_embedding
+from utils import make_embedding, get_db_connection
 import toml
 import argparse
 import sqlite3
@@ -18,15 +18,7 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
 
 def search_db(search_query: str, chunk_type: str = "scene"):
     # connect
-    config = toml.load("config.toml")
-    db_path = config.get("DB_PATH")
-    con = sqlite3.connect(db_path)
-
-    # Load sqlite-vss extension
-    con.enable_load_extension(True)
-    sqlite_vss.load(con)
-    con.enable_load_extension(False)
-
+    con = get_db_connection()
     cur = con.cursor()
 
     # convert to np array and then to bytes (BLOB for sqlite)
