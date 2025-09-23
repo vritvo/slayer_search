@@ -26,7 +26,10 @@ def simple_search_db(
 
 
 def semantic_search(
-    search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
+    search_query: str,
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k=10,
 ):
     # connect
     con = get_db_connection()
@@ -62,16 +65,65 @@ def semantic_search(
     JOIN {table_name} e ON e.rowid = v.rowid
     WHERE vss_search(
         v.embedding,
-        vss_search_params(?, 10)
+        vss_search_params(?, ?)
     )
     ORDER BY v.distance
     """,
-        (search_vec,),
+        (search_vec, initial_k),
     ).fetchall()
 
     con.close()
 
     return rows
+
+
+def cross_encoder(
+    search_query: str,
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k: int = 100,
+    final_k: int = 10,
+):
+    config = toml.load("config.toml")
+    initial_candidates = semantic_search(
+        search_query, chunk_type, embedding_model, initial_k
+    )
+
+    print(f"Retrieved {len(initial_candidates)} initial candidates")
+
+    cross_encoder = CrossEncoder(config["EMBEDDING_MODEL"]["crossencoder_model"])
+
+    query_doc_pairs = []
+    candidate_metadata = []
+
+    for fname, idx, text, bi_encoder_dist in initial_candidates:
+        query_doc_pairs.append([search_query, text])
+        candidate_metadata.append((fname, idx, text, bi_encoder_dist))
+
+    print("Reranking with cross-encoder...")
+
+    # Score all pairs with cross-encoder
+    cross_encoder_scores = cross_encoder.predict(query_doc_pairs)
+
+    reranked_results = list(zip(cross_encoder_scores, candidate_metadata))
+    reranked_results[0][1][3]  # cross encoder score, meta data, then id of meta data
+
+    # Combine scores with metadata and sort by cross-encoder score
+    reranked_results.sort(key=lambda x: x[0], reverse=True)
+
+    # Display results:
+    print(f"\nTop {final_k} results after reranking:\n")
+
+    for i, (cross_encoder_score, (fname, idx, text, bi_score)) in enumerate(
+        reranked_results[:final_k]
+    ):
+        print(f"#{i + 1}: {fname} [{idx}]")
+        print(
+            f"Cross-encoder score: {cross_encoder_score:.4f} | Bi-encoder distance: {bi_score:.4f}"
+        )
+        print(f"{text[:200]}...")
+        print("-----\n")
+    #
 
 
 if __name__ == "__main__":
@@ -84,11 +136,22 @@ if __name__ == "__main__":
         help="Type of chunking (line, scene, or window)",
         default="scene",
     )
+    parser.add_argument(
+        "--embedding_model",
+        "--e",
+        type=str,
+        help="Embedding model to use (sbert or openAI)",
+        default="sbert",
+    )
+    parser.add_argument(
+        "--cross_encoder", "--x", default=True, help="Use cross encoder for reranking"
+    )
+
     args = parser.parse_args()
 
     # make sure chunk type is either line, scene, or window
-    if args.chunk_type not in ["line", "scene", "window"]:
-        raise ValueError("Invalid chunk_type. Must be 'line', 'scene', or 'window'.")
+    if args.chunk_type not in ["scene", "window"]:
+        raise ValueError("Invalid chunk_type. Must be 'scene', or 'window'.")
 
     print(f"Chunk type: {args.chunk_type}")
 
@@ -106,4 +169,25 @@ if __name__ == "__main__":
 
     print(f"Searching for: '{search_query}'\n")
 
-    simple_search_db(search_query)
+    # simple_search_db(search_query)
+
+    if args.cross_encoder:
+        # add a check to make sure embedding model is sbert since cross encoder only works with sbert
+        if args.embedding_model != "sbert":
+            raise ValueError("Cross encoder only works with sbert embedding model")
+
+        print("Using cross encoder for reranking")
+        cross_encoder(
+            search_query,
+            chunk_type=args.chunk_type,
+            embedding_model=args.embedding_model,
+            initial_k=100,
+            final_k=10,
+        )
+    else:
+        print("Using simple search")
+        simple_search_db(
+            search_query,
+            chunk_type=args.chunk_type,
+            embedding_model=args.embedding_model,
+        )

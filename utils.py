@@ -185,7 +185,7 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
         # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
         for chunk_id, embedding, chunk_text in zip(all_ids, all_embeddings, all_chunks):
-            # Find the file name for this chunk (we need to look it up since zip doesn't preserve it)
+            # Find the file name for this chunk (we need to look it up since zip doesn't preserve it. 'next' iterates until it finds a match then stops.
             chunk_info = next(item for item in iter_chunk if item[id_field] == chunk_id)
 
             print(

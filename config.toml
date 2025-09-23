@@ -18,8 +18,8 @@ User-Agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 fuzzy_cutoff = 88
 
 [WINDOW]
-window_size = 10
-step_size = 2
+window_size = 5
+step_size = 1
 
 [EMBEDDING_MODEL]
 embedding_model = "sbert" #sbert or openAI
