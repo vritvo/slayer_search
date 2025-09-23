@@ -3,7 +3,7 @@ from utils import make_embedding, get_db_connection
 import argparse
 import toml
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -15,7 +15,17 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     return dot_product / (norm_vec1 * norm_vec2)
 
 
-def search_db(
+def simple_search_db(
+    search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
+):
+    rows = semantic_search(search_query, chunk_type, embedding_model)
+
+    for fname, idx, text, dist in rows:
+        print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
+        print("-----\n\n")
+
+
+def semantic_search(
     search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
 ):
     # connect
@@ -23,10 +33,10 @@ def search_db(
     cur = con.cursor()
 
     config = toml.load("config.toml")
-    model = SentenceTransformer(config["EMBEDDING_MODEL"]["sbert_model"])
 
     # convert to np array and then to bytes (BLOB for sqlite)
     if embedding_model == "sbert":
+        model = SentenceTransformer(config["EMBEDDING_MODEL"]["sbert_model"])
         search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
     elif embedding_model == "openAI":
         search_vec = np.asarray(
@@ -59,18 +69,14 @@ def search_db(
         (search_vec,),
     ).fetchall()
 
-    for fname, idx, text, dist in rows:
-        print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
-        print("-----\n\n")
-
     con.close()
+
+    return rows
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Semantic search for episode lines")
     parser.add_argument("--query", "--q", type=str, help="Search query")
-
-    # TODO: this parser is not necessary anymore, will need to process of how this works.
     parser.add_argument(
         "--chunk_type",
         "--c",
@@ -100,4 +106,4 @@ if __name__ == "__main__":
 
     print(f"Searching for: '{search_query}'\n")
 
-    search_db(search_query)
+    simple_search_db(search_query)

@@ -26,4 +26,4 @@ embedding_model = "sbert" #sbert or openAI
 sbert_model = "multi-qa-mpnet-base-dot-v1"
 sbert_dim = 768
 oai_dim = 1536
-
+crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-6-v2"

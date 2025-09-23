@@ -142,8 +142,6 @@ def clear_table(table_name):
     con = get_db_connection()
     cur = con.cursor()
 
-    print(table_name)
-
     cur.execute(f"DELETE FROM {table_name}")
 
     con.commit()
