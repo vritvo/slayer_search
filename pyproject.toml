@@ -12,4 +12,5 @@ dependencies = ["bs4",
                 "openai",
                 "dotenv",
                 "pandas",
-                "sqlite-vss"]
+                "sqlite-vss",
+                "sentence_transformers"]

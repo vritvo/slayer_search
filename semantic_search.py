@@ -1,10 +1,9 @@
-import pandas as pd
 import numpy as np
 from utils import make_embedding, get_db_connection
-import toml
 import argparse
-import sqlite3
-import sqlite_vss
+import toml
+
+from sentence_transformers import SentenceTransformer
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -16,13 +15,23 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     return dot_product / (norm_vec1 * norm_vec2)
 
 
-def search_db(search_query: str, chunk_type: str = "scene"):
+def search_db(
+    search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
+):
     # connect
     con = get_db_connection()
     cur = con.cursor()
 
+    config = toml.load("config.toml")
+    model = SentenceTransformer(config["EMBEDDING_MODEL"]["sbert_model"])
+
     # convert to np array and then to bytes (BLOB for sqlite)
-    search_vec = np.asarray(make_embedding(search_query), dtype=np.float32).tobytes()
+    if embedding_model == "sbert":
+        search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
+    elif embedding_model == "openAI":
+        search_vec = np.asarray(
+            make_embedding(search_query), dtype=np.float32
+        ).tobytes()
 
     # search using the VSS virtual table and join with main table
     table_name = chunk_type

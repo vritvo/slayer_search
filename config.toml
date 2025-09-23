@@ -3,7 +3,7 @@
 SCRIPT_FOLDER = "scripts/"
 EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
-DB_PATH = "./vector_db.db"
+DB_PATH = "./vector_db_st.db"
 
 # Web Scraping Values
 
@@ -20,4 +20,10 @@ fuzzy_cutoff = 88
 [WINDOW]
 window_size = 10
 step_size = 2
+
+[EMBEDDING_MODEL]
+embedding_model = "sbert" #sbert or openAI
+sbert_model = "multi-qa-mpnet-base-dot-v1"
+sbert_dim = 768
+oai_dim = 1536
 

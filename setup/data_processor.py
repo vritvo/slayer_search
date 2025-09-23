@@ -160,7 +160,8 @@ def iter_windows_from_scenes():
 def insert_window_db():
     """Insert window chunks into the database."""
 
-    init_window_tables()
+    init_window_tables("window")
+    clear_table("window")
 
     con = get_db_connection()
     cur = con.cursor()

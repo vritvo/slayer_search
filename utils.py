@@ -6,6 +6,7 @@ import toml
 import sqlite_vss
 import json
 from datetime import datetime
+from sentence_transformers import SentenceTransformer
 
 
 def make_embedding(script):
@@ -54,6 +55,12 @@ def init_scene_tables(table_name: str = "scene"):
     """Initialize the scene table and VSS virtual table for the given table name."""
     con = get_db_connection()
     cur = con.cursor()
+    config = toml.load("config.toml")
+    embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    if embedding_model == "sbert":
+        embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
+    elif embedding_model == "openAI":
+        embedding_dim = config["EMBEDDING_MODEL"]["oai_dim"]
 
     # Create the Scene table
     cur.execute(f"""
@@ -66,10 +73,10 @@ def init_scene_tables(table_name: str = "scene"):
     """)
 
     # Create virtual table for vector search using sqlite-vss
-    # Assuming embeddings are 1536 dimensions (OpenAI default)
+
     cur.execute(f"""
         CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
-            embedding(1536)
+            embedding({embedding_dim})
         )
     """)
     con.commit()
@@ -80,6 +87,13 @@ def init_window_tables(table_name: str = "window"):
     """Initialize the window table and VSS virtual table for the given table name."""
     con = get_db_connection()
     cur = con.cursor()
+
+    config = toml.load("config.toml")
+    embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    if embedding_model == "sbert":
+        embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
+    elif embedding_model == "openAI":
+        embedding_dim = config["EMBEDDING_MODEL"]["oai_dim"]
 
     # Create the window table
     cur.execute(f"""
@@ -93,10 +107,10 @@ def init_window_tables(table_name: str = "window"):
     """)
 
     # Create virtual table for vector search using sqlite-vss
-    # Assuming embeddings are 1536 dimensions (OpenAI default)
+
     cur.execute(f"""
         CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
-            embedding(1536)
+            embedding({embedding_dim})
         )
     """)
     con.commit()
@@ -128,17 +142,20 @@ def clear_table(table_name):
     con = get_db_connection()
     cur = con.cursor()
 
+    print(table_name)
+
     cur.execute(f"DELETE FROM {table_name}")
 
     con.commit()
     con.close()
 
 
-def make_embeddings(chunk_type: str = "scene"):
+def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
     """Create embeddings for the specified chunk type and insert into DB."""
 
     clear_table(f"{chunk_type}_vss")
 
+    # Establish what embeddings are being made
     if chunk_type == "scene":
         # Collect all scene data first to avoid connection conflicts
         iter_chunk = list(iter_scenes())
@@ -153,36 +170,63 @@ def make_embeddings(chunk_type: str = "scene"):
     else:
         raise ValueError("Invalid chunk_type. Must be 'scene' or 'window'.")
 
-    # Process the collected data
-    for db_chunk_row in iter_chunk:
-        chunk = db_chunk_row["text"]
+    # Which embedding model
+    if embedding_model == "sbert":
+        config = toml.load("config.toml")
+        sbert_model_name = config["EMBEDDING_MODEL"]["sbert_model"]
+        model = SentenceTransformer(sbert_model_name)
 
-        # print episode, chunk info, and chunk id being processed.
-        if chunk_type == "scene":
+        all_chunks = []
+        all_ids = []
+        for db_chunk_row in iter_chunk:
+            all_chunks.append(db_chunk_row["text"])
+            all_ids.append(db_chunk_row[id_field])
+
+        print(f"Creating embeddings for {len(all_chunks)} {chunk_type} chunks...")
+        all_embeddings = model.encode(all_chunks)
+        # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
+
+        for chunk_id, embedding, chunk_text in zip(all_ids, all_embeddings, all_chunks):
+            # Find the file name for this chunk (we need to look it up since zip doesn't preserve it)
+            chunk_info = next(item for item in iter_chunk if item[id_field] == chunk_id)
+
             print(
-                f"Processing {db_chunk_row['file_name']} scene {db_chunk_row[index_field]} (ID {db_chunk_row[id_field]})"
-            )
-        else:  # window
-            print(
-                f"Processing {db_chunk_row['file_name']} window {db_chunk_row[index_field]} from scene {db_chunk_row['scene_id']} (ID {db_chunk_row[id_field]})"
+                f"processing {chunk_type}s: episode {chunk_info['file_name']}, id: {chunk_id}"
             )
 
-        try:
-            embedding = make_embedding(chunk)
-        except Exception as e:
-            if "maximum context length" in str(e):
-                log_oversized_chunk(
-                    db_chunk_row["file_name"], db_chunk_row[index_field], len(chunk)
-                )
+            insert_into_vss_table(chunk_type, chunk_id, embedding.tolist())
+
+    elif embedding_model == "openAI":
+        # Process the collected data
+        for db_chunk_row in iter_chunk:
+            chunk = db_chunk_row["text"]
+
+            # print episode, chunk info, and chunk id being processed.
+            if chunk_type == "scene":
                 print(
-                    f"Skipping oversized chunk: {db_chunk_row['file_name']} ({chunk_type} {db_chunk_row[index_field]}) - {len(chunk)} characters"
+                    f"Processing {db_chunk_row['file_name']} scene {db_chunk_row[index_field]} (ID {db_chunk_row[id_field]})"
                 )
-                continue
-            else:
-                raise e  # Re-raise other errors
+            else:  # window
+                print(
+                    f"Processing {db_chunk_row['file_name']} window {db_chunk_row[index_field]} from scene {db_chunk_row['scene_id']} (ID {db_chunk_row[id_field]})"
+                )
 
-        # insert into db
-        insert_into_vss_table(chunk_type, db_chunk_row[id_field], embedding)
+            try:
+                embedding = make_embedding(chunk)
+            except Exception as e:
+                if "maximum context length" in str(e):
+                    log_oversized_chunk(
+                        db_chunk_row["file_name"], db_chunk_row[index_field], len(chunk)
+                    )
+                    print(
+                        f"Skipping oversized chunk: {db_chunk_row['file_name']} ({chunk_type} {db_chunk_row[index_field]}) - {len(chunk)} characters"
+                    )
+                    continue
+                else:
+                    raise e  # Re-raise other errors
+
+            # insert into db
+            insert_into_vss_table(chunk_type, db_chunk_row[id_field], embedding)
 
 
 def iter_scenes(batch_size: int = 500):
