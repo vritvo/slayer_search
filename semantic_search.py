@@ -32,7 +32,7 @@ def semantic_search(
     initial_k=10,
 ):
     # connect
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
     config = toml.load("config.toml")
@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     # simple_search_db(search_query)
 
-    if args.cross_encoder:
+    if args.cross_encoder and args.embedding_model != "openAI":
         # add a check to make sure embedding model is sbert since cross encoder only works with sbert
         if args.embedding_model != "sbert":
             raise ValueError("Cross encoder only works with sbert embedding model")

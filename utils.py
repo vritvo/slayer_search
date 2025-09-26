@@ -20,10 +20,23 @@ def make_embedding(script):
     return response.data[0].embedding
 
 
-def get_db_connection():
+def get_db_connection(embedding_model=None):
     """Get a connection to the vector database."""
     config = toml.load("config.toml")
-    db_path = config.get("DB_PATH")
+    
+    # Determine database path based on embedding model
+    if embedding_model is None:
+        # Default to the embedding model from config if not specified
+        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    
+    if embedding_model == "sbert":
+        db_path = "./vector_db_st.db"
+    elif embedding_model == "openAI":
+        db_path = "./vector_db.db"
+    else:
+        # Fallback to config DB_PATH for backwards compatibility
+        db_path = config.get("DB_PATH")
+    
     con = sqlite3.connect(db_path)
 
     con.enable_load_extension(True)  # temporarily allow extension loading
@@ -51,12 +64,15 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
         )
 
 
-def init_scene_tables(table_name: str = "scene"):
+def init_scene_tables(table_name: str = "scene", embedding_model: str = None):
     """Initialize the scene table and VSS virtual table for the given table name."""
-    con = get_db_connection()
-    cur = con.cursor()
     config = toml.load("config.toml")
-    embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    if embedding_model is None:
+        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    
+    con = get_db_connection(embedding_model)
+    cur = con.cursor()
+    
     if embedding_model == "sbert":
         embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
     elif embedding_model == "openAI":
@@ -83,13 +99,15 @@ def init_scene_tables(table_name: str = "scene"):
     con.close()
 
 
-def init_window_tables(table_name: str = "window"):
+def init_window_tables(table_name: str = "window", embedding_model: str = None):
     """Initialize the window table and VSS virtual table for the given table name."""
-    con = get_db_connection()
+    config = toml.load("config.toml")
+    if embedding_model is None:
+        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
+    
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
-    config = toml.load("config.toml")
-    embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
     if embedding_model == "sbert":
         embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
     elif embedding_model == "openAI":
@@ -117,9 +135,9 @@ def init_window_tables(table_name: str = "window"):
     con.close()
 
 
-def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
+def insert_into_vss_table(chunk_type: str, row_id: int, embedding, embedding_model: str = None):
     """Insert a single embedding into the VSS virtual table."""
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
     table_name = chunk_type
@@ -137,9 +155,42 @@ def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
     con.close()
 
 
-def clear_table(table_name):
+def batch_insert_into_vss_table(chunk_type: str, embeddings_data, embedding_model: str = None):
+    """Insert multiple embeddings into the VSS virtual table using batch processing."""
+    con = get_db_connection(embedding_model)
+    cur = con.cursor()
+
+    table_name = chunk_type
+    vss_table_name = f"{table_name}_vss"
+    batch_size = 500  # Smaller batch size for embeddings due to memory usage
+    
+    try:
+        for i in range(0, len(embeddings_data), batch_size):
+            batch = embeddings_data[i:i + batch_size]
+            
+            # Prepare batch data - convert embeddings to JSON strings
+            batch_values = [(row_id, json.dumps(embedding)) for row_id, embedding in batch]
+            
+            cur.executemany(
+                f"""
+                INSERT INTO {vss_table_name}(rowid, embedding)
+                VALUES (?, ?)
+            """, batch_values)
+            
+            con.commit()  # Commit each batch
+            print(f"Inserted batch {i//batch_size + 1}: {len(batch)} embeddings into {vss_table_name}")
+            
+    except Exception as e:
+        print(f"Error in batch_insert_into_vss_table: {e}")
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
+
+def clear_table(table_name, embedding_model: str = None):
     """Clear all data from a table."""
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
     cur.execute(f"DELETE FROM {table_name}")
@@ -151,18 +202,18 @@ def clear_table(table_name):
 def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
     """Create embeddings for the specified chunk type and insert into DB."""
 
-    clear_table(f"{chunk_type}_vss")
+    clear_table(f"{chunk_type}_vss", embedding_model)
 
     # Establish what embeddings are being made
     if chunk_type == "scene":
         # Collect all scene data first to avoid connection conflicts
-        iter_chunk = list(iter_scenes())
+        iter_chunk = list(iter_scenes(embedding_model=embedding_model))
         index_field = "scene_id_in_episode"
         id_field = "scene_id"
 
     elif chunk_type == "window":
         # Collect all window data first to avoid connection conflicts
-        iter_chunk = list(iter_windows())
+        iter_chunk = list(iter_windows(embedding_model=embedding_model))
         index_field = "window_id_in_scene"
         id_field = "window_id"
     else:
@@ -184,18 +235,18 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
         all_embeddings = model.encode(all_chunks)
         # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
-        for chunk_id, embedding, chunk_text in zip(all_ids, all_embeddings, all_chunks):
-            # Find the file name for this chunk (we need to look it up since zip doesn't preserve it. 'next' iterates until it finds a match then stops.
-            chunk_info = next(item for item in iter_chunk if item[id_field] == chunk_id)
+        # Prepare embeddings data for batch insertion
+        embeddings_data = []
+        for chunk_id, embedding in zip(all_ids, all_embeddings):
+            embeddings_data.append((chunk_id, embedding.tolist()))
 
-            print(
-                f"processing {chunk_type}s: episode {chunk_info['file_name']}, id: {chunk_id}"
-            )
-
-            insert_into_vss_table(chunk_type, chunk_id, embedding.tolist())
+        print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
+        batch_insert_into_vss_table(chunk_type, embeddings_data, embedding_model)
 
     elif embedding_model == "openAI":
-        # Process the collected data
+        # Process the collected data and accumulate embeddings for batch insertion
+        embeddings_data = []
+        
         for db_chunk_row in iter_chunk:
             chunk = db_chunk_row["text"]
 
@@ -211,6 +262,8 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
 
             try:
                 embedding = make_embedding(chunk)
+                # Accumulate embeddings for batch insertion
+                embeddings_data.append((db_chunk_row[id_field], embedding))
             except Exception as e:
                 if "maximum context length" in str(e):
                     log_oversized_chunk(
@@ -223,13 +276,15 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
                 else:
                     raise e  # Re-raise other errors
 
-            # insert into db
-            insert_into_vss_table(chunk_type, db_chunk_row[id_field], embedding)
+        # Batch insert all collected embeddings
+        if embeddings_data:
+            print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
+            batch_insert_into_vss_table(chunk_type, embeddings_data, embedding_model)
 
 
-def iter_scenes(batch_size: int = 500):
+def iter_scenes(batch_size: int = 500, embedding_model: str = None):
     """Yield scene rows from the DB in batches as dicts."""
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -251,16 +306,15 @@ def iter_scenes(batch_size: int = 500):
                 }
 
             con.commit()
-
     except Exception as e:
         print(f"Error in iter_scenes: {e}")
     finally:
         con.close()
 
 
-def iter_windows(batch_size: int = 500):
+def iter_windows(batch_size: int = 500, embedding_model: str = None):
     """Yield window rows from the DB in batches as dicts."""
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()

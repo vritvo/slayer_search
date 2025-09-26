@@ -1,22 +1,16 @@
 import toml
+import os
 from utils import (
     get_db_connection,
-    init_scene_tables,
-    clear_table,
-    init_window_tables,
     iter_scenes,
 )
 
 
-def make_scene_chunks():
+def make_scene_chunks(embedding_model: str = None):
     """Process script chunks and insert them row-by-row into the database."""
+    config = toml.load("config.toml")
 
-    init_scene_tables("scene")
-
-    # Clear existing data
-    clear_table("scene")
-
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
     table_name = "scene"
@@ -25,6 +19,7 @@ def make_scene_chunks():
         # Process all files in the scripts directory
         # for file_name in os.listdir("scripts"):
         for file_name in [
+            "1x01 Welcome to the Hellmouth.txt",
             "4x12 A New Man.txt",
         ]:
             if not file_name.endswith(".txt"):
@@ -35,19 +30,19 @@ def make_scene_chunks():
             with open(f"scripts/{file_name}", "r") as f:
                 script = f.read()
 
-            # Split on lines that start with "cut to" (case insensitive)
+            # Split on lines that start with "cut" (case insensitive)
             lines = script.split("\n")
 
             # Initialize variables.
-            # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut to" is encountered.
+            # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut" is encountered.
             curr_chunk = []  # current scene chunk
             chunk_index = 0
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
                 if line.strip().lower().startswith(
-                    "cut to"
-                ) | line.strip().lower().startswith("(cut to"):
+                    "cut "
+                ) | line.strip().lower().startswith("(cut "):
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
                         chunk_text = "\n".join(curr_chunk).strip()
@@ -142,10 +137,10 @@ def make_window_chunk(chunk):
     return script_chunks
 
 
-def iter_windows_from_scenes():
+def iter_windows_from_scenes(embedding_model: str = None):
     """Read each scene, make windows from them."""
 
-    for scene in iter_scenes():
+    for scene in iter_scenes(embedding_model=embedding_model):
         windows = make_window_chunk(scene["text"])
 
         for w_idx, w_text in enumerate(windows):
@@ -157,36 +152,62 @@ def iter_windows_from_scenes():
             }
 
 
-def insert_window_db():
-    """Insert window chunks into the database."""
+def insert_window_db(embedding_model: str = None):
+    """Insert window chunks into the database using batch processing."""
 
-    init_window_tables("window")
-    clear_table("window")
-
-    con = get_db_connection()
+    con = get_db_connection(embedding_model)
     cur = con.cursor()
 
     table_name = "window"
+    batch_size = 1000  # Process windows in batches
+    batch = []
+    total_processed = 0
+
     try:
-        for row in iter_windows_from_scenes():
-            cur.execute(
-                f"""
-                INSERT INTO {table_name}
-                (scene_id, window_id_in_scene, window_text, file_name)
-                VALUES (?, ?, ?, ?)
-            """,
+        for row in iter_windows_from_scenes(embedding_model):
+            batch.append(
                 (
                     row["scene_id"],
                     row["window_id_in_scene"],
                     row["window_text"],
                     row["file_name"],
-                ),
+                )
             )
 
-        con.commit()
-        print(f"Successfully inserted window chunks into table: `{table_name}`")
+            # Process batch when it reaches batch_size
+            if len(batch) >= batch_size:
+                cur.executemany(
+                    f"""
+                    INSERT INTO {table_name}
+                    (scene_id, window_id_in_scene, window_text, file_name)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    batch,
+                )
+                con.commit()  # Commit each batch
+                total_processed += len(batch)
+                print(f"Processed {total_processed} window chunks...")
+                batch = []  # Reset batch
+
+        # Process any remaining windows in the final batch
+        if batch:
+            cur.executemany(
+                f"""
+                INSERT INTO {table_name}
+                (scene_id, window_id_in_scene, window_text, file_name)
+                VALUES (?, ?, ?, ?)
+            """,
+                batch,
+            )
+            con.commit()
+            total_processed += len(batch)
+
+        print(
+            f"Successfully inserted {total_processed} window chunks into table: `{table_name}`"
+        )
 
     except Exception as e:
         print(f"Error in insert_window_db: {e}")
+        con.rollback()  # Rollback on error
     finally:
         con.close()
