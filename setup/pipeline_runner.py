@@ -4,7 +4,13 @@ This script is run once to build the database and embeddings.
 """
 
 from setup.data_processor import make_scene_chunks, insert_window_db
-from utils import make_embeddings, init_scene_tables, init_window_tables, clear_table
+from utils import (
+    make_embeddings,
+    init_scene_tables,
+    init_window_tables,
+    clear_table,
+    get_db_path,
+)
 import toml
 import argparse
 
@@ -12,12 +18,13 @@ import argparse
 def run_full_pipeline(embedding_model: str = "sbert"):
     """Run the complete data processing pipeline."""
     print(f"Running embeddings with {embedding_model}")
+    print(f"Using database: {get_db_path(embedding_model)}")
     print("Starting full data pipeline...")
-    
+
     # Initialize tables with the specified embedding model
     init_scene_tables("scene", embedding_model)
     init_window_tables("window", embedding_model)
-    
+
     # Clear existing data
     for table in ["scene", "window"]:
         clear_table(table, embedding_model)
@@ -46,11 +53,11 @@ if __name__ == "__main__":
         help="Embedding model to use (sbert or openAI)",
         default="sbert",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Validate embedding model
     if args.embedding_model not in ["sbert", "openAI"]:
         raise ValueError("Invalid embedding_model. Must be 'sbert' or 'openAI'.")
-    
+
     run_full_pipeline(args.embedding_model)

@@ -1,9 +1,12 @@
-
 # Project Values
 SCRIPT_FOLDER = "scripts/"
 EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
-DB_PATH = "./vector_db_st.db"
+
+# Database paths for different embedding models
+[DATABASE]
+sbert = "./vector_db_sbert.db"
+openAI = "./vector_db_openai.db"
 
 # Web Scraping Values
 
@@ -27,3 +30,11 @@ sbert_model = "multi-qa-mpnet-base-dot-v1"
 sbert_dim = 768
 oai_dim = 1536
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+[EVALUATION]
+search_queries = [
+    "giles holds a feathery cleaning stick in his mouth",
+    "darla and the boy are breaking into the school", 
+    "giles is talking about getting lost in the maze of the hallway when he's meeting Professor Walsh"
+]
+output_path = "eval/evaluation.csv"

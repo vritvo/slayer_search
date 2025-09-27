@@ -3,10 +3,11 @@ from dotenv import load_dotenv
 import os
 import sqlite3
 import toml
+import numpy as np
 import sqlite_vss
 import json
 from datetime import datetime
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 
 
 def make_embedding(script):
@@ -20,28 +21,25 @@ def make_embedding(script):
     return response.data[0].embedding
 
 
-def get_db_connection(embedding_model=None):
-    """Get a connection to the vector database."""
+def get_db_path(embedding_model: str) -> str:
+    """Get the correct database path based on embedding model."""
     config = toml.load("config.toml")
-    
-    # Determine database path based on embedding model
-    if embedding_model is None:
-        # Default to the embedding model from config if not specified
-        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
-    
-    if embedding_model == "sbert":
-        db_path = "./vector_db_st.db"
-    elif embedding_model == "openAI":
-        db_path = "./vector_db.db"
-    else:
-        # Fallback to config DB_PATH for backwards compatibility
-        db_path = config.get("DB_PATH")
-    
+
+    if embedding_model not in ["sbert", "openAI"]:
+        raise ValueError("Invalid embedding_model. Must be 'sbert' or 'openAI'.")
+
+    return config["DATABASE"][embedding_model]
+
+
+def get_db_connection(embedding_model: str = "sbert"):
+    """Get database connection with the correct path for the embedding model."""
+    db_path = get_db_path(embedding_model)
     con = sqlite3.connect(db_path)
 
-    con.enable_load_extension(True)  # temporarily allow extension loading
-    sqlite_vss.load(con)  # load the sqlite-vss extension
-    con.enable_load_extension(False)  # disable extension loading again
+    # Load the sqlite-vss extension
+    con.enable_load_extension(True)
+    sqlite_vss.load(con)
+    con.enable_load_extension(False)
 
     return con
 
@@ -69,10 +67,10 @@ def init_scene_tables(table_name: str = "scene", embedding_model: str = None):
     config = toml.load("config.toml")
     if embedding_model is None:
         embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
-    
+
     con = get_db_connection(embedding_model)
     cur = con.cursor()
-    
+
     if embedding_model == "sbert":
         embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
     elif embedding_model == "openAI":
@@ -104,7 +102,7 @@ def init_window_tables(table_name: str = "window", embedding_model: str = None):
     config = toml.load("config.toml")
     if embedding_model is None:
         embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
-    
+
     con = get_db_connection(embedding_model)
     cur = con.cursor()
 
@@ -135,7 +133,9 @@ def init_window_tables(table_name: str = "window", embedding_model: str = None):
     con.close()
 
 
-def insert_into_vss_table(chunk_type: str, row_id: int, embedding, embedding_model: str = None):
+def insert_into_vss_table(
+    chunk_type: str, row_id: int, embedding, embedding_model: str = None
+):
     """Insert a single embedding into the VSS virtual table."""
     con = get_db_connection(embedding_model)
     cur = con.cursor()
@@ -155,7 +155,9 @@ def insert_into_vss_table(chunk_type: str, row_id: int, embedding, embedding_mod
     con.close()
 
 
-def batch_insert_into_vss_table(chunk_type: str, embeddings_data, embedding_model: str = None):
+def batch_insert_into_vss_table(
+    chunk_type: str, embeddings_data, embedding_model: str = None
+):
     """Insert multiple embeddings into the VSS virtual table using batch processing."""
     con = get_db_connection(embedding_model)
     cur = con.cursor()
@@ -163,23 +165,29 @@ def batch_insert_into_vss_table(chunk_type: str, embeddings_data, embedding_mode
     table_name = chunk_type
     vss_table_name = f"{table_name}_vss"
     batch_size = 500  # Smaller batch size for embeddings due to memory usage
-    
+
     try:
         for i in range(0, len(embeddings_data), batch_size):
-            batch = embeddings_data[i:i + batch_size]
-            
+            batch = embeddings_data[i : i + batch_size]
+
             # Prepare batch data - convert embeddings to JSON strings
-            batch_values = [(row_id, json.dumps(embedding)) for row_id, embedding in batch]
-            
+            batch_values = [
+                (row_id, json.dumps(embedding)) for row_id, embedding in batch
+            ]
+
             cur.executemany(
                 f"""
                 INSERT INTO {vss_table_name}(rowid, embedding)
                 VALUES (?, ?)
-            """, batch_values)
-            
+            """,
+                batch_values,
+            )
+
             con.commit()  # Commit each batch
-            print(f"Inserted batch {i//batch_size + 1}: {len(batch)} embeddings into {vss_table_name}")
-            
+            print(
+                f"Inserted batch {i // batch_size + 1}: {len(batch)} embeddings into {vss_table_name}"
+            )
+
     except Exception as e:
         print(f"Error in batch_insert_into_vss_table: {e}")
         con.rollback()
@@ -246,7 +254,7 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
     elif embedding_model == "openAI":
         # Process the collected data and accumulate embeddings for batch insertion
         embeddings_data = []
-        
+
         for db_chunk_row in iter_chunk:
             chunk = db_chunk_row["text"]
 
@@ -342,3 +350,123 @@ def iter_windows(batch_size: int = 500, embedding_model: str = None):
         print(f"Error in iter_windows: {e}")
     finally:
         con.close()
+
+
+def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """Calculate cosine similarity between two vectors."""
+
+    dot_product = np.dot(vec1, vec2)  # dot product
+    norm_vec1 = np.linalg.norm(vec1)  # magnitude of the vector
+    norm_vec2 = np.linalg.norm(vec2)  # magnitude of the vector
+    return dot_product / (norm_vec1 * norm_vec2)
+
+
+def simple_search_db(
+    search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
+):
+    rows = semantic_search(search_query, chunk_type, embedding_model)
+
+    for fname, idx, text, dist in rows:
+        print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
+        print("-----\n\n")
+
+
+def semantic_search(
+    search_query: str,
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k=10,
+):
+    # connect
+    con = get_db_connection(embedding_model)
+    cur = con.cursor()
+
+    config = toml.load("config.toml")
+
+    # convert to np array and then to bytes (BLOB for sqlite)
+    if embedding_model == "sbert":
+        model = SentenceTransformer(config["EMBEDDING_MODEL"]["sbert_model"])
+        search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
+    elif embedding_model == "openAI":
+        search_vec = np.asarray(
+            make_embedding(search_query), dtype=np.float32
+        ).tobytes()
+
+    # search using the VSS virtual table and join with main table
+    table_name = chunk_type
+    vss_table_name = f"{table_name}_vss"
+
+    # Handle different table schemas with standardized column names
+    if chunk_type == "window":
+        index_col = "window_id_in_scene"
+        text_col = "window_text"
+    else:  # scene or other chunk types
+        index_col = "scene_id_in_episode"
+        text_col = "scene_text"
+
+    rows = cur.execute(
+        f"""
+    SELECT e.file_name, e.{index_col}, e.{text_col}, v.distance
+    FROM {vss_table_name} v
+    JOIN {table_name} e ON e.rowid = v.rowid
+    WHERE vss_search(
+        v.embedding,
+        vss_search_params(?, ?)
+    )
+    ORDER BY v.distance
+    """,
+        (search_vec, initial_k),
+    ).fetchall()
+
+    con.close()
+
+    return rows
+
+
+def cross_encoder(
+    search_query: str,
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k: int = 100,
+    final_k: int = 10,
+):
+    config = toml.load("config.toml")
+    initial_candidates = semantic_search(
+        search_query, chunk_type, embedding_model, initial_k
+    )
+
+    print(f"Retrieved {len(initial_candidates)} initial candidates")
+
+    cross_encoder = CrossEncoder(config["EMBEDDING_MODEL"]["crossencoder_model"])
+
+    query_doc_pairs = []
+    candidate_metadata = []
+
+    for fname, idx, text, bi_encoder_dist in initial_candidates:
+        query_doc_pairs.append([search_query, text])
+        candidate_metadata.append((fname, idx, text, bi_encoder_dist))
+
+    print("Reranking with cross-encoder...")
+
+    # Score all pairs with cross-encoder
+    cross_encoder_scores = cross_encoder.predict(query_doc_pairs)
+
+    reranked_results = list(zip(cross_encoder_scores, candidate_metadata))
+    reranked_results[0][1][3]  # cross encoder score, meta data, then id of meta data
+
+    # Combine scores with metadata and sort by cross-encoder score
+    reranked_results.sort(key=lambda x: x[0], reverse=True)
+
+    # Display results:
+    print(f"\nTop {final_k} results after reranking:\n")
+
+    for i, (cross_encoder_score, (fname, idx, text, bi_score)) in enumerate(
+        reranked_results[:final_k]
+    ):
+        print(f"#{i + 1}: {fname} [{idx}]")
+        print(
+            f"Cross-encoder score: {cross_encoder_score:.4f} | Bi-encoder distance: {bi_score:.4f}"
+        )
+        print(f"{text[:200]}...")
+        print("-----\n")
+    #
