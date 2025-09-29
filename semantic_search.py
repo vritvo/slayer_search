@@ -35,7 +35,10 @@ if __name__ == "__main__":
         default="sbert",
     )
     parser.add_argument(
-        "--cross_encoder", "--x", default=True, help="Use cross encoder for reranking"
+        "--cross_encoder",
+        "--x",
+        action="store_true",
+        help="Use cross encoder for reranking",
     )
 
     parser.add_argument("--eval", "--e", action="store_true")
@@ -47,8 +50,9 @@ if __name__ == "__main__":
         raise ValueError("Invalid chunk_type. Must be 'scene', or 'window'.")
 
     print(f"Chunk type: {args.chunk_type}")
-
     print(f"eval value is {args.eval}")
+    print(f"cross encoder: {args.cross_encoder}")
+
     if not args.eval:
         # Get search query from user input
         user_input = input("Enter your search query: ").strip()
@@ -84,4 +88,5 @@ if __name__ == "__main__":
             search_query,
             chunk_type=args.chunk_type,
             embedding_model=args.model,
+            initial_k=10,
         )

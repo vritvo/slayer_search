@@ -34,12 +34,20 @@ def get_db_path(embedding_model: str) -> str:
 def get_db_connection(embedding_model: str = "sbert"):
     """Get database connection with the correct path for the embedding model."""
     db_path = get_db_path(embedding_model)
-    con = sqlite3.connect(db_path)
+    con = sqlite3.connect(db_path, timeout=20.0)  # Add timeout
 
     # Load the sqlite-vss extension
     con.enable_load_extension(True)
-    sqlite_vss.load(con)
-    con.enable_load_extension(False)
+    try:
+        sqlite_vss.load(con)
+    except Exception as e:
+        print(f"Warning: Could not load sqlite-vss extension: {e}")
+    finally:
+        con.enable_load_extension(False)
+
+    # Set some pragmas for better concurrency
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA synchronous=NORMAL")
 
     return con
 
@@ -362,9 +370,14 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
 
 
 def simple_search_db(
-    search_query: str, chunk_type: str = "window", embedding_model: str = "sbert"
+    search_query: str,
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k=10,
 ):
-    rows = semantic_search(search_query, chunk_type, embedding_model)
+    rows = semantic_search(
+        search_query, chunk_type, embedding_model, initial_k=initial_k
+    )
 
     for fname, idx, text, dist in rows:
         print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")

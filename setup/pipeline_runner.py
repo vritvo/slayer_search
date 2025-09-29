@@ -13,6 +13,8 @@ from utils import (
 )
 import toml
 import argparse
+import time
+import gc
 
 
 def run_full_pipeline(embedding_model: str = "sbert"):
@@ -22,18 +24,33 @@ def run_full_pipeline(embedding_model: str = "sbert"):
     print("Starting full data pipeline...")
 
     # Initialize tables with the specified embedding model
+    print("Initializing scene tables...")
     init_scene_tables("scene", embedding_model)
+    time.sleep(0.5)
+    gc.collect()  # Force garbage collection
+
+    print("Initializing window tables...")
     init_window_tables("window", embedding_model)
+    time.sleep(0.5)
+    gc.collect()
 
     # Clear existing data
+    print("Clearing existing data...")
     for table in ["scene", "window"]:
+        print(f"Clearing table: {table}")
         clear_table(table, embedding_model)
+        time.sleep(0.5)
+        gc.collect()
 
     print("\n1. Creating scene chunks...")
     make_scene_chunks(embedding_model)  # Create scene chunks in database
+    time.sleep(1.0)
+    gc.collect()
 
     print("\n2. Creating window chunks...")
     insert_window_db(embedding_model)  # Create window chunks in database
+    time.sleep(1.0)
+    gc.collect()
 
     print("\n3. Creating scene embeddings...")
     make_embeddings("scene", embedding_model)  # Create embeddings for scene chunks
