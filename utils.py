@@ -245,7 +245,9 @@ def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
         all_chunks = []
         all_ids = []
         for db_chunk_row in iter_chunk:
-            all_chunks.append(db_chunk_row["text"])
+            all_chunks.append(
+                f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+            )
             all_ids.append(db_chunk_row[id_field])
 
         print(f"Creating embeddings for {len(all_chunks)} {chunk_type} chunks...")

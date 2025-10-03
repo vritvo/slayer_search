@@ -31,12 +31,12 @@ sbert_dim = 768
 oai_dim = 1536
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
-[EVALUATION]
-search_queries = [
-    "giles holds a feathery cleaning stick in his mouth",
-    "giles holds a feather duster in his mouth",
-    "buffy and angel are at the graveyard talking about keeping on fighting no matter what and whether the world ever gets better", 
-    "buffy and giles are at the graveyard and he's reading to her from a book what seems to be slayer mythology but then it turns out to be college test prep",
-    "buffy and joyce are at the asylum. buffy is agitated, her mom is calming her down. she says her family loves her and she has to keep fighting. buffy says 'youre right', 'thank you', and 'goodbye'"
-]
+[EVALUATION.search_queries]
+"giles holds a feathery cleaning stick in his mouth" = """Cut to Giles's apartment. He's dusting inside one of his book cases. He stops as he suddenly remembers something. He holds the feather duster between his teeth and takes an old tome from the shelf. He opens it and sits down on a cushion footrest. He reads then does a calculation with his fingers. He removes the featherduster."""
+"giles holds a feather duster in his mouth" = """Cut to Giles's apartment. He's dusting inside one of his book cases. He stops as he suddenly remembers something. He holds the feather duster between his teeth and takes an old tome from the shelf. He opens it and sits down on a cushion footrest. He reads then does a calculation with his fingers. He removes the featherduster."""
+"buffy and angel are at the graveyard talking about keeping on fighting no matter what and whether the world ever gets better" = """Buffy, you know, I'm still figuring things out. There's a lot I don't understand. But I do know it's important to keep fighting. I learned that from you."""
+"buffy and giles are at the graveyard and he's reading to her from a book what seems to be slayer mythology but then it turns out to be college test prep" = """Which of the following best expresses the theme of the passage? A) Violence breeds violence, B) All things must end, C)"""
+"buffy and joyce are at the asylum. buffy is agitated, her mom is calming her down. she says her family loves her and she has to keep fighting. buffy says 'youre right', 'thank you', and 'goodbye'" = """Buffy? Buffy! Buffy, fight it. You're too good to give in, you can beat this thing. Be strong, baby"""
+
+[EVALUATION.params]
 output_path = "eval/evaluation.csv"
