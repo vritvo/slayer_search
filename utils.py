@@ -7,7 +7,8 @@ import numpy as np
 import sqlite_vss
 import json
 from datetime import datetime
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
+import pandas as pd
 
 
 def make_embedding(script):
@@ -473,6 +474,7 @@ def cross_encoder(
     # Display results:
     print(f"\nTop {final_k} results after reranking:\n")
 
+    results = []
     for i, (cross_encoder_score, (fname, idx, text, bi_score)) in enumerate(
         reranked_results[:final_k]
     ):
@@ -482,4 +484,23 @@ def cross_encoder(
         )
         print(f"{text[:200]}...")
         print("-----\n")
+
+        results.append(
+            {
+                "i": i,
+                "query": search_query,
+                "x_score": cross_encoder_score,
+                "b_score": bi_score,
+                "episode": fname,
+                "index": idx,
+                "text": text,
+                "embedding_model": embedding_model,
+            }
+        )
+
+        results_df = pd.DataFrame(results)
+        results_df.to_csv("search_output.csv", index=False)
+
+    return results_df
+
     #

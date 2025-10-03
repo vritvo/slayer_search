@@ -1,44 +1,50 @@
 import pandas as pd
 import toml
 import os
-from utils import semantic_search
+from utils import cross_encoder
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def evaluate_semantic_search(
-    chunk_type: str = "window", embedding_model: str = "openAI", initial_k: int = 10
+    chunk_type: str = "window",
+    embedding_model: str = "sbert",
+    initial_k: int = 100,
+    final_k=10,
 ):
     # Load config
     config = toml.load("config.toml")
     search_queries = config["EVALUATION"]["search_queries"]
     output_path = config["EVALUATION"]["output_path"]
-
+    cross_encoder_model = config["EMBEDDING_MODEL"]["crossencoder_model"]
+    bi_encoder_model = config["EMBEDDING_MODEL"]["sbert_model"]
+    chunk_size = config["WINDOW"]["window_size"]
+    overlap = config["WINDOW"]["step_size"]
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Collect all results first, then create DataFrame once
-    results = []
+    results = pd.DataFrame()
 
-    for query in search_queries:
-        rows = semantic_search(query, chunk_type, embedding_model, initial_k)
+    for search_query in search_queries:
+        print(search_query)
+        rows_df = cross_encoder(
+            search_query, chunk_type, embedding_model, initial_k, final_k
+        )
+        rows_df["cross_encoder_model"] = cross_encoder_model
+        rows_df["bi_encoder_model"] = bi_encoder_model
+        rows_df["chunk_type"] = chunk_type
+        rows_df["embedding_model"] = embedding_model
+        rows_df["chunk_size"] = chunk_size
+        rows_df["overlap"] = overlap
+        rows_df["initial_k"] = initial_k
+        rows_df["final_k"] = final_k
+        results = pd.concat([results, rows_df], ignore_index=True)
 
-        for episode, index, text, dist in rows:
-            results.append(
-                {
-                    "query": query,
-                    "episode": episode,
-                    "index": index,
-                    "text": text,
-                    "dist": dist,
-                    "chunk_type": chunk_type,
-                    "embedding_model": embedding_model,
-                    "initial_k": initial_k,
-                }
-            )
+        results["date"] = pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S")
+        results["evaluation_id"] = pd.util.hash_pandas_object(results).sum()
 
-    print(results)
     # Create Dataframe:
     eval_df = pd.DataFrame(results)
 

@@ -1,10 +1,5 @@
-import numpy as np
 from utils import (
-    make_embedding,
-    get_db_connection,
-    cosine_similarity,
     simple_search_db,
-    semantic_search,
     cross_encoder,
 )
 import logging
@@ -80,7 +75,7 @@ if __name__ == "__main__":
             chunk_type=args.chunk_type,
             embedding_model=args.model,
             initial_k=100,
-            final_k=10,
+            final_k=15,
         )
     else:
         print("Using simple search")

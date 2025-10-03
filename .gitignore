@@ -19,4 +19,11 @@ scripts/*
 embeddings/*
 
 # db
-vector_db.db
+vector_db*
+
+# misc
+notes/
+
+# eval
+eval/
+search_output.csv
