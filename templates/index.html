@@ -3,205 +3,217 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sg: semantic grep</title>
+    <title>Slayer Search</title>
     <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+      /* ===== Buffy palette (tunable) ===== */
+      :root{
+        --bg:            #0a0b12;   /* midnight indigo */
+        --bg-2:          #0e1020;   /* panel base */
+        --bg-3:          #13142a;   /* darker panel */
+        --surface:       #191b33;   /* table header / inputs */
+        --border:        #2a2d46;   /* cool gray-purple */
+        --text:          #e9ecf3;   /* moonlit white */
+        --muted:         #99a1b3;   /* mist */
+        --lavender:      #b9a6ff;   /* soft accent */
+        --indigo:        #7aa0ff;   /* focus accent */
+        --violet:        #8b5cf6;   /* button accent */
+        --moon:          #f4efc2;   /* pale moon yellow (for highlights/glow) */
+        --red-fang:      #b13a3a;   /* tiny ‘fang’ accent only */
       }
-
-      body {
-        font-family: "Segoe UI", system-ui, sans-serif;
-        background: #0d1117;
-        color: #e6edf3;
+    
+      *{ box-sizing: border-box; margin:0; padding:0; }
+    
+      body{
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+        color: var(--text);
         height: 100vh;
         overflow: hidden;
+        background:
+          radial-gradient(1600px 800px at 85% -20%, rgba(244,239,194,0.08) 0%, rgba(244,239,194,0.03) 35%, transparent 60%),
+          radial-gradient(800px 600px at 15% 120%, rgba(139,92,246,0.12) 0%, transparent 60%),
+          linear-gradient(180deg, #0a0b12 0%, #0b0d18 40%, #0a1222 100%);
       }
-
-      .container {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .search-header {
+    
+      .container{ height:100vh; display:flex; flex-direction:column; }
+    
+      .search-header{
         padding: 20px;
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
+        background: var(--bg-2);
+        border-bottom: 1px solid var(--border);
+        /* faint inner glow like moonlight on the bar */
+        box-shadow: inset 0 -1px 0 rgba(255,255,255,0.02);
       }
-
-      .search-box {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-      }
-
-      .search-input {
-        flex: 1;
+    
+      .search-box{ display:flex; gap:10px; align-items:center; }
+    
+      .search-input{
+        flex:1;
         padding: 12px 16px;
-        background: #21262d;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        color: #e6edf3;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text);
         font-size: 14px;
+        caret-color: var(--lavender);
+        transition: border-color .15s, box-shadow .15s, background-color .15s;
       }
-
-      .search-input:focus {
+      .search-input::placeholder{ color: #8891a6; }
+      .search-input:focus{
         outline: none;
-        border-color: #58a6ff;
-        box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        border-color: var(--indigo);
+        /* moon-glow */
+        box-shadow: 0 0 0 3px rgba(122,160,255,0.15), 0 0 18px rgba(244,239,194,0.08) inset;
+        background: #1c1f3a;
       }
-
-      .search-btn {
-        padding: 12px 24px;
-        background: #238636;
+    
+      .search-btn{
+        padding: 12px 20px;
+        background: linear-gradient(180deg, #6f79ff 0%, var(--violet) 100%);
         color: white;
-        border: none;
-        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 10px;
         cursor: pointer;
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        transition: transform .06s ease, filter .15s ease, box-shadow .15s ease;
+        box-shadow: 0 6px 18px rgba(139,92,246,0.2);
       }
-
-      .search-btn:hover {
-        background: #2ea043;
-      }
-
-      .search-btn:disabled {
-        background: #30363d;
+      .search-btn:hover{ filter: brightness(1.07); }
+      .search-btn:active{ transform: translateY(1px); }
+      .search-btn:disabled{
+        background: #2a2e4a;
+        color: #9aa1b8;
         cursor: not-allowed;
+        box-shadow: none;
       }
-
-      .content {
-        flex: 1;
-        display: flex;
-        overflow: hidden;
+    
+      .content{ flex:1; display:flex; overflow:hidden; }
+    
+      .results-panel{
+        width:60%;
+        background: transparent; /* let starfield show through */
+        overflow:auto;
+        border-right: 1px solid var(--border);
       }
-
-      .results-panel {
-        width: 60%;
-        background: #0d1117;
-        overflow: auto;
-        border-right: 1px solid #30363d;
+      .file-panel{
+        width:40%;
+        background: var(--bg-2);
+        overflow:auto;
       }
-
-      .file-panel {
-        width: 40%;
-        background: #161b22;
-        overflow: auto;
-      }
-
-      .results-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      .results-table th {
-        background: #21262d;
+    
+      .results-table{ width:100%; border-collapse:collapse; }
+    
+      .results-table th{
+        background: var(--surface);
         padding: 12px;
         text-align: left;
-        font-weight: 600;
-        border-bottom: 1px solid #30363d;
-        position: sticky;
-        top: 0;
-        z-index: 10;
+        font-weight: 700;
+        border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 10;
+        color: var(--lavender);
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
       }
-
-      .results-table td {
+    
+      .results-table td{
         padding: 12px;
-        border-bottom: 1px solid #21262d;
+        border-bottom: 1px solid rgba(42,45,70,0.7);
         vertical-align: top;
       }
-
-      .result-row {
+    
+      .result-row{
         cursor: pointer;
-        transition: background-color 0.1s;
+        transition: background-color 0.12s ease, box-shadow .12s ease;
       }
-
-      .result-row:hover {
-        background: #161b22;
+      .result-row:hover{
+        background: rgba(122,160,255,0.05); /* indigo wash on hover */
       }
-
-      .result-row.selected {
-        background: #1c2128;
-        border-left: 3px solid #58a6ff;
+      .result-row.selected{
+        background: rgba(185,166,255,0.08);
+        border-left: 3px solid var(--lavender);
+        box-shadow: inset 2px 0 0 -1px var(--red-fang);
       }
-
-      .similarity {
-        font-family: "SF Mono", Monaco, monospace;
+    
+      .similarity{
+        font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
         font-size: 12px;
-        color: #7d8590;
+        color: var(--muted);
       }
-
-      .filename {
-        color: #58a6ff;
-        font-weight: 500;
+      .filename{
+        color: var(--indigo);
+        font-weight: 600;
+        text-shadow: 0 0 8px rgba(122,160,255,0.15);
       }
-
-      .chunk-preview {
+    
+      .chunk-preview{
         max-width: 300px;
         white-space: pre-wrap;
-        font-family: "SF Mono", Monaco, monospace;
+        font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
         font-size: 12px;
-        line-height: 1.4;
-        color: #c9d1d9;
+        line-height: 1.45;
+        color: #cfd6e6;
         overflow: hidden;
         text-overflow: ellipsis;
         max-height: 100px;
       }
-
-      .file-content {
+    
+      .file-content{
         padding: 20px;
-        font-family: "SF Mono", Monaco, monospace;
+        font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
         font-size: 13px;
-        line-height: 1.5;
+        line-height: 1.55;
         white-space: pre-wrap;
-        color: #c9d1d9;
+        color: #d7def0;
+        background:
+          linear-gradient(180deg, transparent, rgba(122,160,255,0.02));
       }
-
-      .file-header {
+    
+      .file-header{
         padding: 15px 20px;
-        background: #21262d;
-        border-bottom: 1px solid #30363d;
-        font-weight: 600;
-        color: #58a6ff;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        font-weight: 700;
+        color: var(--lavender);
+        letter-spacing: 0.3px;
       }
-
-      .highlight {
-        background: #ffd33d22;
-        border-radius: 3px;
-        padding: 0 2px;
+    
+      .highlight{
+        background: rgba(244,239,194,0.14); /* pale moon */
+        border-radius: 4px;
+        padding: 0 3px;
+        box-shadow: inset 0 0 0 1px rgba(244,239,194,0.18);
       }
-
-      .loading {
+    
+      .loading, .empty-state{
         text-align: center;
         padding: 40px;
-        color: #7d8590;
+        color: var(--muted);
       }
-
-      .empty-state {
-        text-align: center;
-        padding: 40px;
-        color: #7d8590;
-      }
-
-      .spinner {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #30363d;
-        border-radius: 50%;
-        border-top-color: #58a6ff;
+    
+      .spinner{
+        display:inline-block;
+        width:16px; height:16px;
+        border: 2px solid var(--border);
+        border-radius:50%;
+        border-top-color: var(--indigo);
         animation: spin 1s ease-in-out infinite;
-        margin-right: 8px;
+        margin-right:8px;
       }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+    
+      @keyframes spin { to { transform: rotate(360deg); } }
+    
+      /* Optional: crisp scrollbars in dark mode (Chromium/Edge/Firefox) */
+      *{
+        scrollbar-width: thin;
+        scrollbar-color: #3a3f63 transparent;
       }
+      *::-webkit-scrollbar{ height:10px; width:10px; }
+      *::-webkit-scrollbar-thumb{
+        background: #3a3f63; border-radius: 10px;
+        border: 2px solid transparent; background-clip: padding-box;
+      }
+      *::-webkit-scrollbar-track{ background: transparent; }
     </style>
   </head>
   <body>
@@ -212,7 +224,7 @@
             type="text"
             id="searchInput"
             class="search-input"
-            placeholder="Search ..."
+            placeholder="Search Buffy episodes... (e.g., 'Giles holds a feather duster in his mouth')"
             autocomplete="off"
           />
           <button id="searchBtn" class="search-btn">Search</button>
@@ -226,14 +238,14 @@
               <tr>
                 <th width="60">#</th>
                 <th width="80">Score</th>
-                <th width="150">File</th>
+                <th width="150">Episode</th>
                 <th>Content</th>
               </tr>
             </thead>
             <tbody id="resultsBody">
               <tr>
                 <td colspan="4" class="empty-state">
-                  Enter a search query to find semantic matches
+                  Enter a search query to find Buffy episode scenes
                 </td>
               </tr>
             </tbody>
@@ -242,7 +254,7 @@
 
         <div class="file-panel">
           <div class="file-header" id="fileHeader">
-            Select a result to view file
+            Select a result to view the scene from the episode.
           </div>
           <div class="file-content" id="fileContent"></div>
         </div>
@@ -314,11 +326,11 @@
             (result, index) => `
                 <tr class="result-row" onclick="selectResult(${index})">
                     <td>${result.rank}</td>
-                    <td class="similarity">${result.similarity.toFixed(3)}</td>
-                    <td class="filename">${result.filename}</td>
-                    <td class="chunk-preview">${escapeHtml(result.chunk_content.substring(0, 200))}${result.chunk_content.length > 200 ? "..." : ""}</td>
+                    <td class="similarity">${result.score}</td>
+                    <td class="filename">${result.episode}</td>
+                    <td class="chunk-preview">${escapeHtml(result.preview)}</td>
                 </tr>
-            `,
+            `
           )
           .join("");
 
@@ -337,45 +349,14 @@
           row.classList.toggle("selected", i === index);
         });
 
-        fileHeader.textContent = result.filename;
-        fileContent.textContent = "Loading file...";
-
-        try {
-          const response = await fetch(`/file/${result.file_id}`);
-          const data = await response.json();
-
-          if (data.error) {
-            fileContent.textContent = `Error: ${data.error}`;
-            return;
-          }
-
-          const beforeChunk = data.content.substring(0, result.start_byte);
-          const chunkContent = data.content.substring(
-            result.start_byte,
-            result.end_byte,
-          );
-          const afterChunk = data.content.substring(result.end_byte);
-
-          fileContent.innerHTML =
-            escapeHtml(beforeChunk) +
-            '<span class="highlight" id="highlighted-chunk">' +
-            escapeHtml(chunkContent) +
-            "</span>" +
-            escapeHtml(afterChunk);
-
-          setTimeout(() => {
-            const highlightElement =
-              document.getElementById("highlighted-chunk");
-            if (highlightElement) {
-              highlightElement.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              });
-            }
-          }, 100);
-        } catch (error) {
-          fileContent.textContent = "Error loading file";
-        }
+        fileHeader.textContent = result.episode;
+        
+        // Simply display the full text content with highlighting
+        fileContent.innerHTML = 
+          '<span class="highlight">' + escapeHtml(result.text) + '</span>';
+        
+        // Scroll to top of content
+        fileContent.scrollTop = 0;
       }
 
       function escapeHtml(text) {

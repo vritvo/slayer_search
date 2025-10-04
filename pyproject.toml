@@ -13,4 +13,5 @@ dependencies = ["bs4",
                 "dotenv",
                 "pandas",
                 "sqlite-vss",
-                "sentence_transformers"]
+                "sentence_transformers",
+                "flask"]
