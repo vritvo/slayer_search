@@ -50,6 +50,8 @@ def make_scene_chunks(embedding_model: str = None):
                             print(f"  Splitting chunk {chunk_index}")
 
                             # Insert into main table
+                            episode_name = file_name.replace(".txt", "")
+
                             cur.execute(
                                 f"""
                                 INSERT INTO {table_name}
@@ -57,7 +59,7 @@ def make_scene_chunks(embedding_model: str = None):
                                 VALUES (?, ?, ?)
                             """,
                                 (
-                                    file_name,
+                                    episode_name,
                                     chunk_index,
                                     chunk_text,
                                 ),

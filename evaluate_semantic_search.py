@@ -21,32 +21,36 @@ def evaluate_semantic_search(
     bi_encoder_model = config["EMBEDDING_MODEL"]["sbert_model"]
     chunk_size = config["WINDOW"]["window_size"]
     overlap = config["WINDOW"]["step_size"]
+
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Collect all results first, then create DataFrame once
     results = pd.DataFrame()
 
-    for key, value in search_queries.items():
-        search_query = key
+    for listed_query, correct_answer in search_queries.items():
+        search_query = listed_query
         print(search_query)
-        rows_df = cross_encoder(
+        rows = cross_encoder(
             search_query, chunk_type, embedding_model, initial_k, final_k
         )
-        # Add metadata columns
+
+        rows_df = pd.DataFrame(rows)
+
+        # Add metadata column
         rows_df["cross_encoder_model"] = cross_encoder_model
         rows_df["bi_encoder_model"] = bi_encoder_model
         rows_df["chunk_type"] = chunk_type
-        rows_df["correct_match"] = rows_df["text"].str.contains(
-            value, case=False, regex=False
-        )
         rows_df["embedding_model"] = embedding_model
         rows_df["chunk_size"] = chunk_size
         rows_df["overlap"] = overlap
         rows_df["initial_k"] = initial_k
         rows_df["final_k"] = final_k
 
-        # Append to results DataFrame
+        rows_df["correct_match"] = rows_df["text"].str.contains(
+            correct_answer, case=False, regex=False
+        )
+
         results = pd.concat([results, rows_df], ignore_index=True)
         results["date"] = pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S")
         results["evaluation_id"] = pd.util.hash_pandas_object(results).sum()

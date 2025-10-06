@@ -387,6 +387,17 @@ def simple_search_db(
         print("-----\n\n")
 
 
+def get_index(chunk_type):
+    if chunk_type == "window":
+        index_col = "window_id_in_scene"
+        text_col = "window_text"
+    else:
+        index_col = "scene_id_in_episode"
+        text_col = "scene_text"
+
+    return index_col, text_col
+
+
 def semantic_search(
     search_query: str,
     chunk_type: str = "window",
@@ -395,6 +406,7 @@ def semantic_search(
 ):
     # connect
     con = get_db_connection(embedding_model)
+    con.row_factory = sqlite3.Row
     cur = con.cursor()
 
     config = toml.load("config.toml")
@@ -413,12 +425,7 @@ def semantic_search(
     vss_table_name = f"{table_name}_vss"
 
     # Handle different table schemas with standardized column names
-    if chunk_type == "window":
-        index_col = "window_id_in_scene"
-        text_col = "window_text"
-    else:  # scene or other chunk types
-        index_col = "scene_id_in_episode"
-        text_col = "scene_text"
+    index_col, text_col = get_index(chunk_type)
 
     rows = cur.execute(
         f"""
@@ -435,8 +442,27 @@ def semantic_search(
     ).fetchall()
 
     con.close()
+    results = []
 
-    return rows
+    for i, row in enumerate(rows):
+        text_content = row[text_col]
+        preview = (
+            text_content[:200] + "..." if len(text_content) > 200 else text_content
+        )
+
+        results.append(
+            {
+                "rank": i + 1,
+                "episode": row["file_name"],
+                "scene_id": row[index_col],
+                "text": text_content,
+                "score": f"{1 - row['distance']:.3f}",  # Convert distance to similarity
+                "preview": preview,
+                "distance": row["distance"],  # Keep original distance for reference
+            }
+        )
+
+    return results
 
 
 def cross_encoder(
@@ -456,53 +482,45 @@ def cross_encoder(
     cross_encoder = CrossEncoder(config["EMBEDDING_MODEL"]["crossencoder_model"])
 
     query_doc_pairs = []
-    candidate_metadata = []
 
-    for fname, idx, text, bi_encoder_dist in initial_candidates:
-        query_doc_pairs.append([search_query, text])
-        candidate_metadata.append((fname, idx, text, bi_encoder_dist))
+    for c in initial_candidates:
+        query_doc_pairs.append([search_query, c["text"]])
 
     print("Reranking with cross-encoder...")
 
     # Score all pairs with cross-encoder
     cross_encoder_scores = cross_encoder.predict(query_doc_pairs)
 
-    reranked_results = list(zip(cross_encoder_scores, candidate_metadata))
-    reranked_results[0][1][3]  # cross encoder score, meta data, then id of meta data
+    # Add cross-encoder scores to candidates - convert to Python float for JSON serialization
+    for i, candidate in enumerate(initial_candidates):
+        candidate["x_score"] = float(
+            cross_encoder_scores[i]
+        )  # Convert numpy float32 to Python float
 
-    # Combine scores with metadata and sort by cross-encoder score
-    reranked_results.sort(key=lambda x: x[0], reverse=True)
+    # Combine scores with metadata and sort by cross-encoder score (top score first)
+    reranked_results = sorted(
+        initial_candidates, key=lambda x: x["x_score"], reverse=True
+    )[:final_k]
 
-    # Display results:
-    print(f"\nTop {final_k} results after reranking:\n")
-
+    # Update results with final formatting
     results = []
-    for i, (cross_encoder_score, (fname, idx, text, bi_score)) in enumerate(
-        reranked_results[:final_k]
-    ):
-        print(f"#{i + 1}: {fname} [{idx}]")
-        print(
-            f"Cross-encoder score: {cross_encoder_score:.4f} | Bi-encoder distance: {bi_score:.4f}"
-        )
-        print(f"{text[:200]}...")
-        print("-----\n")
-
+    for i, val in enumerate(reranked_results):
         results.append(
             {
-                "i": i,
-                "query": search_query,
-                "x_score": cross_encoder_score,
-                "b_score": bi_score,
-                "episode": fname,
-                "index": idx,
-                "text": text,
-                "embedding_model": embedding_model,
+                "rank": i + 1,
+                "episode": val["episode"],
+                "scene_id": val["scene_id"],
+                "text": val["text"],
+                "score": f"{val['x_score']:.3f}",  # Use cross-encoder score
+                "preview": val["preview"],
+                "bi_encoder_dist": val["distance"],
+                "cross_encoder_score": float(
+                    val["x_score"]
+                ),  # Ensure it's a Python float
             }
         )
 
-        results_df = pd.DataFrame(results)
-        results_df.to_csv("search_output.csv", index=False)
+    results_df = pd.DataFrame(results)
+    results_df.to_csv("search_output.csv", index=False)
 
-    return results_df
-
-    #
+    return results
