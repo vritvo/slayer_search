@@ -1,4 +1,3 @@
-from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import sqlite3
@@ -11,30 +10,11 @@ from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 import pandas as pd
 
 
-def make_embedding(script):
-    """Create an embedding for the given script using OpenAI API."""
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
-
-    client = OpenAI(api_key=api_key)
-    response = client.embeddings.create(input=script, model="text-embedding-3-small")
-
-    return response.data[0].embedding
-
-
-def get_db_path(embedding_model: str) -> str:
-    """Get the correct database path based on embedding model."""
-    config = toml.load("config.toml")
-
-    if embedding_model not in ["sbert", "openAI"]:
-        raise ValueError("Invalid embedding_model. Must be 'sbert' or 'openAI'.")
-
-    return config["DATABASE"][embedding_model]
-
-
-def get_db_connection(embedding_model: str = "sbert"):
+def get_db_connection():
     """Get database connection with the correct path for the embedding model."""
-    db_path = get_db_path(embedding_model)
+    config = toml.load("config.toml")
+    db_path = config["db_path"]
+
     con = sqlite3.connect(db_path, timeout=20.0)  # Add timeout
 
     # Load the sqlite-vss extension
@@ -71,19 +51,14 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
         )
 
 
-def init_scene_tables(table_name: str = "scene", embedding_model: str = None):
+def init_scene_tables(table_name: str = "scene"):
     """Initialize the scene table and VSS virtual table for the given table name."""
     config = toml.load("config.toml")
-    if embedding_model is None:
-        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
 
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
-    if embedding_model == "sbert":
-        embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
-    elif embedding_model == "openAI":
-        embedding_dim = config["EMBEDDING_MODEL"]["oai_dim"]
+    embedding_dim = config["EMBEDDING_MODEL"]["model_dim"]
 
     # Create the Scene table
     cur.execute(f"""
@@ -106,19 +81,14 @@ def init_scene_tables(table_name: str = "scene", embedding_model: str = None):
     con.close()
 
 
-def init_window_tables(table_name: str = "window", embedding_model: str = None):
+def init_window_tables(table_name: str = "window"):
     """Initialize the window table and VSS virtual table for the given table name."""
     config = toml.load("config.toml")
-    if embedding_model is None:
-        embedding_model = config["EMBEDDING_MODEL"]["embedding_model"]
 
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
-    if embedding_model == "sbert":
-        embedding_dim = config["EMBEDDING_MODEL"]["sbert_dim"]
-    elif embedding_model == "openAI":
-        embedding_dim = config["EMBEDDING_MODEL"]["oai_dim"]
+    embedding_dim = config["EMBEDDING_MODEL"]["model_dim"]
 
     # Create the window table
     cur.execute(f"""
@@ -142,11 +112,9 @@ def init_window_tables(table_name: str = "window", embedding_model: str = None):
     con.close()
 
 
-def insert_into_vss_table(
-    chunk_type: str, row_id: int, embedding, embedding_model: str = None
-):
+def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
     """Insert a single embedding into the VSS virtual table."""
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
     table_name = chunk_type
@@ -164,11 +132,9 @@ def insert_into_vss_table(
     con.close()
 
 
-def batch_insert_into_vss_table(
-    chunk_type: str, embeddings_data, embedding_model: str = None
-):
+def batch_insert_into_vss_table(chunk_type: str, embeddings_data):
     """Insert multiple embeddings into the VSS virtual table using batch processing."""
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
     table_name = chunk_type
@@ -205,9 +171,9 @@ def batch_insert_into_vss_table(
         con.close()
 
 
-def clear_table(table_name, embedding_model: str = None):
+def clear_table(table_name):
     """Clear all data from a table."""
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
     cur.execute(f"DELETE FROM {table_name}")
@@ -216,94 +182,54 @@ def clear_table(table_name, embedding_model: str = None):
     con.close()
 
 
-def make_embeddings(chunk_type: str = "scene", embedding_model="sbert"):
+def make_embeddings(chunk_type: str = "scene"):
     """Create embeddings for the specified chunk type and insert into DB."""
 
-    clear_table(f"{chunk_type}_vss", embedding_model)
+    clear_table(f"{chunk_type}_vss")
 
     # Establish what embeddings are being made
     if chunk_type == "scene":
         # Collect all scene data first to avoid connection conflicts
-        iter_chunk = list(iter_scenes(embedding_model=embedding_model))
+        iter_chunk = list(iter_scenes())
         index_field = "scene_id_in_episode"
         id_field = "scene_id"
 
     elif chunk_type == "window":
         # Collect all window data first to avoid connection conflicts
-        iter_chunk = list(iter_windows(embedding_model=embedding_model))
+        iter_chunk = list(iter_windows())
         index_field = "window_id_in_scene"
         id_field = "window_id"
     else:
         raise ValueError("Invalid chunk_type. Must be 'scene' or 'window'.")
 
-    # Which embedding model
-    if embedding_model == "sbert":
-        config = toml.load("config.toml")
-        sbert_model_name = config["EMBEDDING_MODEL"]["sbert_model"]
-        model = SentenceTransformer(sbert_model_name)
+    config = toml.load("config.toml")
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
+    model = SentenceTransformer(model_name)
 
-        all_chunks = []
-        all_ids = []
-        for db_chunk_row in iter_chunk:
-            all_chunks.append(
-                f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
-            )
-            all_ids.append(db_chunk_row[id_field])
+    all_chunks = []
+    all_ids = []
+    for db_chunk_row in iter_chunk:
+        all_chunks.append(
+            f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+        )
+        all_ids.append(db_chunk_row[id_field])
 
-        print(f"Creating embeddings for {len(all_chunks)} {chunk_type} chunks...")
-        all_embeddings = model.encode(all_chunks)
-        # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
+    print(f"Creating embeddings for {len(all_chunks)} {chunk_type} chunks...")
+    all_embeddings = model.encode(all_chunks)
+    # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
-        # Prepare embeddings data for batch insertion
-        embeddings_data = []
-        for chunk_id, embedding in zip(all_ids, all_embeddings):
-            embeddings_data.append((chunk_id, embedding.tolist()))
+    # Prepare embeddings data for batch insertion
+    embeddings_data = []
+    for chunk_id, embedding in zip(all_ids, all_embeddings):
+        embeddings_data.append((chunk_id, embedding.tolist()))
 
-        print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
-        batch_insert_into_vss_table(chunk_type, embeddings_data, embedding_model)
-
-    elif embedding_model == "openAI":
-        # Process the collected data and accumulate embeddings for batch insertion
-        embeddings_data = []
-
-        for db_chunk_row in iter_chunk:
-            chunk = db_chunk_row["text"]
-
-            # print episode, chunk info, and chunk id being processed.
-            if chunk_type == "scene":
-                print(
-                    f"Processing {db_chunk_row['file_name']} scene {db_chunk_row[index_field]} (ID {db_chunk_row[id_field]})"
-                )
-            else:  # window
-                print(
-                    f"Processing {db_chunk_row['file_name']} window {db_chunk_row[index_field]} from scene {db_chunk_row['scene_id']} (ID {db_chunk_row[id_field]})"
-                )
-
-            try:
-                embedding = make_embedding(chunk)
-                # Accumulate embeddings for batch insertion
-                embeddings_data.append((db_chunk_row[id_field], embedding))
-            except Exception as e:
-                if "maximum context length" in str(e):
-                    log_oversized_chunk(
-                        db_chunk_row["file_name"], db_chunk_row[index_field], len(chunk)
-                    )
-                    print(
-                        f"Skipping oversized chunk: {db_chunk_row['file_name']} ({chunk_type} {db_chunk_row[index_field]}) - {len(chunk)} characters"
-                    )
-                    continue
-                else:
-                    raise e  # Re-raise other errors
-
-        # Batch insert all collected embeddings
-        if embeddings_data:
-            print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
-            batch_insert_into_vss_table(chunk_type, embeddings_data, embedding_model)
+    print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
+    batch_insert_into_vss_table(chunk_type, embeddings_data)
 
 
-def iter_scenes(batch_size: int = 500, embedding_model: str = None):
+def iter_scenes(batch_size: int = 500):
     """Yield scene rows from the DB in batches as dicts."""
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -331,9 +257,9 @@ def iter_scenes(batch_size: int = 500, embedding_model: str = None):
         con.close()
 
 
-def iter_windows(batch_size: int = 500, embedding_model: str = None):
+def iter_windows(batch_size: int = 500):
     """Yield window rows from the DB in batches as dicts."""
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -375,12 +301,9 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
 def simple_search_db(
     search_query: str,
     chunk_type: str = "window",
-    embedding_model: str = "sbert",
     initial_k=10,
 ):
-    rows = semantic_search(
-        search_query, chunk_type, embedding_model, initial_k=initial_k
-    )
+    rows = semantic_search(search_query, chunk_type, initial_k=initial_k)
 
     for fname, idx, text, dist in rows:
         print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
@@ -401,24 +324,18 @@ def get_index(chunk_type):
 def semantic_search(
     search_query: str,
     chunk_type: str = "window",
-    embedding_model: str = "sbert",
     initial_k=10,
 ):
     # connect
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
     config = toml.load("config.toml")
 
     # convert to np array and then to bytes (BLOB for sqlite)
-    if embedding_model == "sbert":
-        model = SentenceTransformer(config["EMBEDDING_MODEL"]["sbert_model"])
-        search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
-    elif embedding_model == "openAI":
-        search_vec = np.asarray(
-            make_embedding(search_query), dtype=np.float32
-        ).tobytes()
+    model_name = SentenceTransformer(config["EMBEDDING_MODEL"]["model_name"])
+    search_vec = np.asarray(model_name.encode(search_query), dtype=np.float32).tobytes()
 
     # search using the VSS virtual table and join with main table
     table_name = chunk_type
@@ -468,14 +385,11 @@ def semantic_search(
 def cross_encoder(
     search_query: str,
     chunk_type: str = "window",
-    embedding_model: str = "sbert",
     initial_k: int = 100,
     final_k: int = 10,
 ):
     config = toml.load("config.toml")
-    initial_candidates = semantic_search(
-        search_query, chunk_type, embedding_model, initial_k
-    )
+    initial_candidates = semantic_search(search_query, chunk_type, initial_k)
 
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 

@@ -5,6 +5,7 @@ from utils import (
 import logging
 import argparse
 from evaluate_semantic_search import evaluate_semantic_search
+import toml
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,10 @@ def log_eval():
 
 
 if __name__ == "__main__":
+    config = toml.load("config.toml")
+    initial_k = config["SEARCH"]["initial_k"]
+    final_k = config["SEARCH"]["final_k"]
+
     parser = argparse.ArgumentParser(description="Semantic search for episode lines")
     parser.add_argument(
         "--chunk_type",
@@ -22,13 +27,7 @@ if __name__ == "__main__":
         help="Type of chunking (line, scene, or window)",
         default="scene",
     )
-    parser.add_argument(
-        "--model",
-        "--m",
-        type=str,
-        help="Embedding model to use (sbert or openAI)",
-        default="sbert",
-    )
+
     parser.add_argument(
         "--cross_encoder",
         "--x",
@@ -64,24 +63,20 @@ if __name__ == "__main__":
 
     # simple_search_db(search_query)
 
-    if args.cross_encoder and args.model != "openAI":
+    if args.cross_encoder:
         # add a check to make sure embedding model is sbert since cross encoder only works with sbert
-        if args.model != "sbert":
-            raise ValueError("Cross encoder only works with sbert embedding model")
 
         print("Using cross encoder for reranking")
         cross_encoder(
             search_query,
             chunk_type=args.chunk_type,
-            embedding_model=args.model,
-            initial_k=100,
-            final_k=15,
+            initial_k=initial_k,
+            final_k=final_k,
         )
     else:
         print("Using simple search")
         simple_search_db(
             search_query,
             chunk_type=args.chunk_type,
-            embedding_model=args.model,
-            initial_k=10,
+            initial_k=initial_k,
         )

@@ -1,12 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 from utils import semantic_search, cross_encoder
 import traceback
+import toml
 
 app = Flask(__name__)
 
 # Configuration - you can move these to config.toml later
 DEFAULT_CHUNK_TYPE = "window"
-DEFAULT_EMBEDDING_MODEL = "sbert"
 USE_CROSS_ENCODER = True
 
 
@@ -35,20 +35,22 @@ def search():
 
 def perform_search(query: str):
     """Execute search"""
+    config = toml.load("config.toml")
+    initial_k = config["SEARCH"]["initial_k"]
+    final_k = config["SEARCH"]["final_k"]
+
     if USE_CROSS_ENCODER:
         return cross_encoder(
             query,
             chunk_type=DEFAULT_CHUNK_TYPE,
-            embedding_model=DEFAULT_EMBEDDING_MODEL,
-            initial_k=200,
-            final_k=15,
+            initial_k=initial_k,
+            final_k=final_k,
         )
     else:
         return semantic_search(
             query,
             chunk_type=DEFAULT_CHUNK_TYPE,
-            embedding_model=DEFAULT_EMBEDDING_MODEL,
-            initial_k=15,
+            initial_k=initial_k,
         )
 
 

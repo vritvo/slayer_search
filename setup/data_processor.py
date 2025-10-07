@@ -6,22 +6,22 @@ from utils import (
 )
 
 
-def make_scene_chunks(embedding_model: str = None):
+def make_scene_chunks():
     """Process script chunks and insert them row-by-row into the database."""
     config = toml.load("config.toml")
 
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
     table_name = "scene"
 
     try:
         # Process all files in the scripts directory
-        for file_name in os.listdir("scripts"):
-            # for file_name in [
-            #     "1x01 Welcome to the Hellmouth.txt",
-            #     "4x12 A New Man.txt",
-            # ]:
+        # for file_name in os.listdir("scripts"):
+        for file_name in [
+            "1x01 Welcome to the Hellmouth.txt",
+            "4x12 A New Man.txt",
+        ]:
             if not file_name.endswith(".txt"):
                 continue
 
@@ -139,10 +139,10 @@ def make_window_chunk(chunk):
     return script_chunks
 
 
-def iter_windows_from_scenes(embedding_model: str = None):
+def iter_windows_from_scenes():
     """Read each scene, make windows from them."""
 
-    for scene in iter_scenes(embedding_model=embedding_model):
+    for scene in iter_scenes():
         windows = make_window_chunk(scene["text"])
 
         for w_idx, w_text in enumerate(windows):
@@ -154,10 +154,10 @@ def iter_windows_from_scenes(embedding_model: str = None):
             }
 
 
-def insert_window_db(embedding_model: str = None):
+def insert_window_db():
     """Insert window chunks into the database using batch processing."""
 
-    con = get_db_connection(embedding_model)
+    con = get_db_connection()
     cur = con.cursor()
 
     table_name = "window"
@@ -166,7 +166,7 @@ def insert_window_db(embedding_model: str = None):
     total_processed = 0
 
     try:
-        for row in iter_windows_from_scenes(embedding_model):
+        for row in iter_windows_from_scenes():
             batch.append(
                 (
                     row["scene_id"],
