@@ -5,7 +5,6 @@ import toml
 
 app = Flask(__name__)
 
-# Configuration
 USE_CROSS_ENCODER = True
 
 
@@ -44,7 +43,7 @@ def perform_search(query: str):
             initial_k=initial_k,
             final_k=final_k,
         )
-    else:
+    else:  # Without reranker - worse but faster results.
         return semantic_search(
             query,
             initial_k=initial_k,

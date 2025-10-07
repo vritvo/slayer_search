@@ -33,24 +33,6 @@ def get_db_connection():
     return con
 
 
-def log_oversized_chunk(file_name, chunk_index, chunk_length):
-    """Log an oversized chunk that couldn't be embedded."""
-    config = toml.load("config.toml")
-    logs_folder = config["LOGS_FOLDER"]
-
-    # Create logs folder if it doesn't exist
-    os.makedirs(logs_folder, exist_ok=True)
-
-    log_file = os.path.join(logs_folder, "oversized_chunks.log")
-
-    # Simple append to log file
-    with open(log_file, "a") as f:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        f.write(
-            f"{timestamp} - Oversized chunk skipped - File: {file_name}, Chunk: {chunk_index}, Length: {chunk_length} chars\n"
-        )
-
-
 def init_scene_tables():
     """Initialize the scene table (needed for data processing)."""
     con = get_db_connection()
@@ -130,21 +112,20 @@ def iter_scenes(batch_size: int = 500):
         con.close()
 
 
-def insert_into_vss_table(row_id: int, embedding):
-    """Insert a single embedding into the VSS virtual table."""
-    con = get_db_connection()
-    cur = con.cursor()
+#     """Insert a single embedding into the VSS virtual table."""
+#     con = get_db_connection()
+#     cur = con.cursor()
 
-    cur.execute(
-        f"""
-        INSERT INTO window_vss(rowid, embedding)
-        VALUES (?, ?)
-    """,
-        (row_id, json.dumps(embedding)),
-    )
+#     cur.execute(
+#         f"""
+#         INSERT INTO window_vss(rowid, embedding)
+#         VALUES (?, ?)
+#     """,
+#         (row_id, json.dumps(embedding)),
+#     )
 
-    con.commit()
-    con.close()
+#     con.commit()
+#     con.close()
 
 
 def batch_insert_into_vss_table(embeddings_data):
@@ -258,22 +239,6 @@ def iter_windows(batch_size: int = 500):
         print(f"Error in iter_windows: {e}")
     finally:
         con.close()
-
-
-def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-    """Calculate cosine similarity between two vectors."""
-    dot_product = np.dot(vec1, vec2)  # dot product
-    norm_vec1 = np.linalg.norm(vec1)  # magnitude of the vector
-    norm_vec2 = np.linalg.norm(vec2)  # magnitude of the vector
-    return dot_product / (norm_vec1 * norm_vec2)
-
-
-def simple_search_db(search_query: str, initial_k=10):
-    rows = semantic_search(search_query, initial_k=initial_k)
-
-    for result in rows:
-        print(f"{result['episode']} [{result['scene_id']}] [distance={result['distance']:.4f}] \n{result['text'][:200]}...)")
-        print("-----\n\n")
 
 
 def semantic_search(search_query: str, initial_k=10):

@@ -4,7 +4,7 @@ EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
 
 # Database paths for different embedding models
-db_path = "./vector_db_sbert.db"
+db_path = "./vector_db.db"
 
 # Web Scraping Values
 
@@ -16,7 +16,6 @@ SAD_URL = "https://www.sunnydaleafterdark.com/transcripts.php"
 User-Agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 
 [SEARCH]
-fuzzy_cutoff = 88
 initial_k = 200
 final_k = 15
 
