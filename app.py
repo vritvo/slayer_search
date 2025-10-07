@@ -5,8 +5,7 @@ import toml
 
 app = Flask(__name__)
 
-# Configuration - you can move these to config.toml later
-DEFAULT_CHUNK_TYPE = "window"
+# Configuration
 USE_CROSS_ENCODER = True
 
 
@@ -42,14 +41,12 @@ def perform_search(query: str):
     if USE_CROSS_ENCODER:
         return cross_encoder(
             query,
-            chunk_type=DEFAULT_CHUNK_TYPE,
             initial_k=initial_k,
             final_k=final_k,
         )
     else:
         return semantic_search(
             query,
-            chunk_type=DEFAULT_CHUNK_TYPE,
             initial_k=initial_k,
         )
 

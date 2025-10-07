@@ -21,20 +21,20 @@ def run_full_pipeline():
     print("Running embeddings")
     print("Starting full data pipeline...")
 
-    # Initialize tables with the specified embedding model
+    # Initialize tables
     print("Initializing scene tables...")
-    init_scene_tables("scene")
+    init_scene_tables()
     time.sleep(0.5)
     gc.collect()  # Force garbage collection
 
     print("Initializing window tables...")
-    init_window_tables("window")
+    init_window_tables()
     time.sleep(0.5)
     gc.collect()
 
     # Clear existing data
     print("Clearing existing data...")
-    for table in ["scene", "window"]:
+    for table in ["scene", "window", "window_vss"]:
         print(f"Clearing table: {table}")
         clear_table(table)
         time.sleep(0.5)
@@ -50,11 +50,8 @@ def run_full_pipeline():
     time.sleep(1.0)
     gc.collect()
 
-    print("\n3. Creating scene embeddings...")
-    make_embeddings("scene")  # Create embeddings for scene chunks
-
-    print("\n4. Creating window embeddings...")
-    make_embeddings("window")  # Create embeddings for window chunks
+    print("\n3. Creating window embeddings...")
+    make_embeddings()  # Create embeddings for window chunks only
 
     print("\nPipeline completed successfully!")
 

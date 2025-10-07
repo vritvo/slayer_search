@@ -51,38 +51,26 @@ def log_oversized_chunk(file_name, chunk_index, chunk_length):
         )
 
 
-def init_scene_tables(table_name: str = "scene"):
-    """Initialize the scene table and VSS virtual table for the given table name."""
-    config = toml.load("config.toml")
-
+def init_scene_tables():
+    """Initialize the scene table (needed for data processing)."""
     con = get_db_connection()
     cur = con.cursor()
 
-    embedding_dim = config["EMBEDDING_MODEL"]["model_dim"]
-
-    # Create the Scene table
+    # Create the scene table
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE IF NOT EXISTS scene (
             scene_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_name TEXT,
             scene_id_in_episode INTEGER,
-            scene_text TEXT
-        )
-    """)
-
-    # Create virtual table for vector search using sqlite-vss
-
-    cur.execute(f"""
-        CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
-            embedding({embedding_dim})
+            scene_text TEXT,
+            file_name TEXT
         )
     """)
     con.commit()
     con.close()
 
 
-def init_window_tables(table_name: str = "window"):
-    """Initialize the window table and VSS virtual table for the given table name."""
+def init_window_tables():
+    """Initialize the window table and VSS virtual table."""
     config = toml.load("config.toml")
 
     con = get_db_connection()
@@ -92,7 +80,7 @@ def init_window_tables(table_name: str = "window"):
 
     # Create the window table
     cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE IF NOT EXISTS window (
             window_id INTEGER PRIMARY KEY AUTOINCREMENT,
             scene_id INTEGER,
             window_id_in_scene INTEGER,
@@ -102,9 +90,8 @@ def init_window_tables(table_name: str = "window"):
     """)
 
     # Create virtual table for vector search using sqlite-vss
-
     cur.execute(f"""
-        CREATE VIRTUAL TABLE IF NOT EXISTS {table_name}_vss USING vss0(
+        CREATE VIRTUAL TABLE IF NOT EXISTS window_vss USING vss0(
             embedding({embedding_dim})
         )
     """)
@@ -112,17 +99,45 @@ def init_window_tables(table_name: str = "window"):
     con.close()
 
 
-def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
+def iter_scenes(batch_size: int = 500):
+    """Yield scene rows from the DB in batches as dicts. Used for data processing."""
+    con = get_db_connection()
+    try:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("""
+            SELECT scene_id, scene_id_in_episode, scene_text, file_name
+            FROM scene
+            ORDER BY file_name, scene_id_in_episode
+        """)
+        while True:
+            rows = cur.fetchmany(batch_size)
+            if not rows:
+                break
+            for r in rows:
+                yield {
+                    "scene_id": r["scene_id"],
+                    "scene_id_in_episode": r["scene_id_in_episode"],
+                    "text": r["scene_text"],
+                    "file_name": r["file_name"],
+                }
+
+            con.commit()
+
+    except Exception as e:
+        print(f"Error in iter_scenes: {e}")
+    finally:
+        con.close()
+
+
+def insert_into_vss_table(row_id: int, embedding):
     """Insert a single embedding into the VSS virtual table."""
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = chunk_type
-    vss_table_name = f"{table_name}_vss"
-
     cur.execute(
         f"""
-        INSERT INTO {vss_table_name}(rowid, embedding)
+        INSERT INTO window_vss(rowid, embedding)
         VALUES (?, ?)
     """,
         (row_id, json.dumps(embedding)),
@@ -132,13 +147,11 @@ def insert_into_vss_table(chunk_type: str, row_id: int, embedding):
     con.close()
 
 
-def batch_insert_into_vss_table(chunk_type: str, embeddings_data):
+def batch_insert_into_vss_table(embeddings_data):
     """Insert multiple embeddings into the VSS virtual table using batch processing."""
     con = get_db_connection()
     cur = con.cursor()
 
-    table_name = chunk_type
-    vss_table_name = f"{table_name}_vss"
     batch_size = 500  # Smaller batch size for embeddings due to memory usage
 
     try:
@@ -152,7 +165,7 @@ def batch_insert_into_vss_table(chunk_type: str, embeddings_data):
 
             cur.executemany(
                 f"""
-                INSERT INTO {vss_table_name}(rowid, embedding)
+                INSERT INTO window_vss(rowid, embedding)
                 VALUES (?, ?)
             """,
                 batch_values,
@@ -160,7 +173,7 @@ def batch_insert_into_vss_table(chunk_type: str, embeddings_data):
 
             con.commit()  # Commit each batch
             print(
-                f"Inserted batch {i // batch_size + 1}: {len(batch)} embeddings into {vss_table_name}"
+                f"Inserted batch {i // batch_size + 1}: {len(batch)} embeddings into window_vss"
             )
 
     except Exception as e:
@@ -182,25 +195,12 @@ def clear_table(table_name):
     con.close()
 
 
-def make_embeddings(chunk_type: str = "scene"):
-    """Create embeddings for the specified chunk type and insert into DB."""
+def make_embeddings():
+    """Create embeddings for window chunks and insert into DB."""
+    clear_table("window_vss")
 
-    clear_table(f"{chunk_type}_vss")
-
-    # Establish what embeddings are being made
-    if chunk_type == "scene":
-        # Collect all scene data first to avoid connection conflicts
-        iter_chunk = list(iter_scenes())
-        index_field = "scene_id_in_episode"
-        id_field = "scene_id"
-
-    elif chunk_type == "window":
-        # Collect all window data first to avoid connection conflicts
-        iter_chunk = list(iter_windows())
-        index_field = "window_id_in_scene"
-        id_field = "window_id"
-    else:
-        raise ValueError("Invalid chunk_type. Must be 'scene' or 'window'.")
+    # Collect all window data first to avoid connection conflicts
+    iter_chunk = list(iter_windows())
 
     config = toml.load("config.toml")
     model_name = config["EMBEDDING_MODEL"]["model_name"]
@@ -212,9 +212,9 @@ def make_embeddings(chunk_type: str = "scene"):
         all_chunks.append(
             f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
         )
-        all_ids.append(db_chunk_row[id_field])
+        all_ids.append(db_chunk_row["window_id"])
 
-    print(f"Creating embeddings for {len(all_chunks)} {chunk_type} chunks...")
+    print(f"Creating embeddings for {len(all_chunks)} window chunks...")
     all_embeddings = model.encode(all_chunks)
     # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
@@ -223,38 +223,9 @@ def make_embeddings(chunk_type: str = "scene"):
     for chunk_id, embedding in zip(all_ids, all_embeddings):
         embeddings_data.append((chunk_id, embedding.tolist()))
 
-    print(f"Batch inserting {len(embeddings_data)} {chunk_type} embeddings...")
-    batch_insert_into_vss_table(chunk_type, embeddings_data)
-
-
-def iter_scenes(batch_size: int = 500):
-    """Yield scene rows from the DB in batches as dicts."""
-    con = get_db_connection()
-    try:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute("""
-            SELECT scene_id, file_name, scene_id_in_episode, scene_text
-            FROM scene
-            ORDER BY file_name, scene_id_in_episode
-        """)
-        while True:
-            rows = cur.fetchmany(batch_size)
-            if not rows:
-                break
-            for r in rows:
-                yield {
-                    "scene_id": r["scene_id"],
-                    "file_name": r["file_name"],
-                    "scene_id_in_episode": r["scene_id_in_episode"],
-                    "text": r["scene_text"],
-                }
-
-            con.commit()
-    except Exception as e:
-        print(f"Error in iter_scenes: {e}")
-    finally:
-        con.close()
+    # Actually insert the embeddings into the database
+    print(f"Batch inserting {len(embeddings_data)} window embeddings...")
+    batch_insert_into_vss_table(embeddings_data)
 
 
 def iter_windows(batch_size: int = 500):
@@ -291,41 +262,21 @@ def iter_windows(batch_size: int = 500):
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     """Calculate cosine similarity between two vectors."""
-
     dot_product = np.dot(vec1, vec2)  # dot product
     norm_vec1 = np.linalg.norm(vec1)  # magnitude of the vector
     norm_vec2 = np.linalg.norm(vec2)  # magnitude of the vector
     return dot_product / (norm_vec1 * norm_vec2)
 
 
-def simple_search_db(
-    search_query: str,
-    chunk_type: str = "window",
-    initial_k=10,
-):
-    rows = semantic_search(search_query, chunk_type, initial_k=initial_k)
+def simple_search_db(search_query: str, initial_k=10):
+    rows = semantic_search(search_query, initial_k=initial_k)
 
-    for fname, idx, text, dist in rows:
-        print(f"{fname} [{idx}] [distance={dist:.4f}] \n{text[:200]}...)")
+    for result in rows:
+        print(f"{result['episode']} [{result['scene_id']}] [distance={result['distance']:.4f}] \n{result['text'][:200]}...)")
         print("-----\n\n")
 
 
-def get_index(chunk_type):
-    if chunk_type == "window":
-        index_col = "window_id_in_scene"
-        text_col = "window_text"
-    else:
-        index_col = "scene_id_in_episode"
-        text_col = "scene_text"
-
-    return index_col, text_col
-
-
-def semantic_search(
-    search_query: str,
-    chunk_type: str = "window",
-    initial_k=10,
-):
+def semantic_search(search_query: str, initial_k=10):
     # connect
     con = get_db_connection()
     con.row_factory = sqlite3.Row
@@ -338,17 +289,11 @@ def semantic_search(
     search_vec = np.asarray(model_name.encode(search_query), dtype=np.float32).tobytes()
 
     # search using the VSS virtual table and join with main table
-    table_name = chunk_type
-    vss_table_name = f"{table_name}_vss"
-
-    # Handle different table schemas with standardized column names
-    index_col, text_col = get_index(chunk_type)
-
     rows = cur.execute(
         f"""
-    SELECT e.file_name, e.{index_col}, e.{text_col}, v.distance
-    FROM {vss_table_name} v
-    JOIN {table_name} e ON e.rowid = v.rowid
+    SELECT e.file_name, e.window_id_in_scene, e.window_text, v.distance
+    FROM window_vss v
+    JOIN window e ON e.rowid = v.rowid
     WHERE vss_search(
         v.embedding,
         vss_search_params(?, ?)
@@ -362,7 +307,7 @@ def semantic_search(
     results = []
 
     for i, row in enumerate(rows):
-        text_content = row[text_col]
+        text_content = row["window_text"]
         preview = (
             text_content[:200] + "..." if len(text_content) > 200 else text_content
         )
@@ -371,7 +316,7 @@ def semantic_search(
             {
                 "rank": i + 1,
                 "episode": row["file_name"],
-                "scene_id": row[index_col],
+                "scene_id": row["window_id_in_scene"],
                 "text": text_content,
                 "score": f"{1 - row['distance']:.3f}",  # Convert distance to similarity
                 "preview": preview,
@@ -382,14 +327,9 @@ def semantic_search(
     return results
 
 
-def cross_encoder(
-    search_query: str,
-    chunk_type: str = "window",
-    initial_k: int = 100,
-    final_k: int = 10,
-):
+def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
     config = toml.load("config.toml")
-    initial_candidates = semantic_search(search_query, chunk_type, initial_k)
+    initial_candidates = semantic_search(search_query, initial_k)
 
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 
