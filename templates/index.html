@@ -20,9 +20,9 @@
         --moon:          #f4efc2;   /* pale moon yellow (for highlights/glow) */
         --red-fang:      #b13a3a;   /* tiny ‘fang’ accent only */
       }
-    
+
       *{ box-sizing: border-box; margin:0; padding:0; }
-    
+
       body{
         font-family: ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
         color: var(--text);
@@ -33,19 +33,61 @@
           radial-gradient(800px 600px at 15% 120%, rgba(139,92,246,0.12) 0%, transparent 60%),
           linear-gradient(180deg, #0a0b12 0%, #0b0d18 40%, #0a1222 100%);
       }
-    
+
       .container{ height:100vh; display:flex; flex-direction:column; }
-    
+
       .search-header{
-        padding: 20px;
+        padding: 16px 20px;
         background: var(--bg-2);
         border-bottom: 1px solid var(--border);
-        /* faint inner glow like moonlight on the bar */
         box-shadow: inset 0 -1px 0 rgba(255,255,255,0.02);
       }
-    
+
+      .slayer-search-wrap{
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        margin-bottom:12px;
+      }
+
+      .slayer-search-title{
+        font-weight:800;
+        letter-spacing:0.4px;
+        color: var(--moon);
+        text-shadow: 0 0 12px rgba(244,239,194,0.12);
+        font-size: clamp(18px, 2.2vw, 24px);
+        line-height:1.1;
+      }
+
+      .slayer-search-subtitle{
+        color: var(--lavender);
+        font-weight:600;
+        letter-spacing:0.3px;
+        font-size: clamp(12px, 1.6vw, 14px);
+        opacity: .9;
+      }
+
+      .incantation{
+        font-style: italic;
+        color: var(--muted);
+        font-size: 12px;
+        line-height:1.35;
+        text-shadow: 0 0 8px rgba(139,92,246,0.10);
+      }
+
+      .incantation .cite{
+        font-style: normal;
+        text-transform: none;
+        color: #aab2c7;
+        margin-left: 6px;
+      }
+
+      @media (max-width: 420px){
+        .incantation{ display:none; }
+      }
+
       .search-box{ display:flex; gap:10px; align-items:center; }
-    
+
       .search-input{
         flex:1;
         padding: 12px 16px;
@@ -61,11 +103,10 @@
       .search-input:focus{
         outline: none;
         border-color: var(--indigo);
-        /* moon-glow */
         box-shadow: 0 0 0 3px rgba(122,160,255,0.15), 0 0 18px rgba(244,239,194,0.08) inset;
         background: #1c1f3a;
       }
-    
+
       .search-btn{
         padding: 12px 20px;
         background: linear-gradient(180deg, #6f79ff 0%, var(--violet) 100%);
@@ -87,12 +128,12 @@
         cursor: not-allowed;
         box-shadow: none;
       }
-    
+
       .content{ flex:1; display:flex; overflow:hidden; }
-    
+
       .results-panel{
         width:60%;
-        background: transparent; /* let starfield show through */
+        background: transparent;
         overflow:auto;
         border-right: 1px solid var(--border);
       }
@@ -101,9 +142,9 @@
         background: var(--bg-2);
         overflow:auto;
       }
-    
+
       .results-table{ width:100%; border-collapse:collapse; }
-    
+
       .results-table th{
         background: var(--surface);
         padding: 12px;
@@ -115,26 +156,26 @@
         text-transform: uppercase;
         letter-spacing: 0.6px;
       }
-    
+
       .results-table td{
         padding: 12px;
         border-bottom: 1px solid rgba(42,45,70,0.7);
         vertical-align: top;
       }
-    
+
       .result-row{
         cursor: pointer;
         transition: background-color 0.12s ease, box-shadow .12s ease;
       }
       .result-row:hover{
-        background: rgba(122,160,255,0.05); /* indigo wash on hover */
+        background: rgba(122,160,255,0.05);
       }
       .result-row.selected{
         background: rgba(185,166,255,0.08);
         border-left: 3px solid var(--lavender);
         box-shadow: inset 2px 0 0 -1px var(--red-fang);
       }
-    
+
       .similarity{
         font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
         font-size: 12px;
@@ -145,7 +186,7 @@
         font-weight: 600;
         text-shadow: 0 0 8px rgba(122,160,255,0.15);
       }
-    
+
       .chunk-preview{
         max-width: 300px;
         white-space: pre-wrap;
@@ -157,7 +198,7 @@
         text-overflow: ellipsis;
         max-height: 100px;
       }
-    
+
       .file-content{
         padding: 20px;
         font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
@@ -168,7 +209,7 @@
         background:
           linear-gradient(180deg, transparent, rgba(122,160,255,0.02));
       }
-    
+
       .file-header{
         padding: 15px 20px;
         background: var(--surface);
@@ -177,20 +218,20 @@
         color: var(--lavender);
         letter-spacing: 0.3px;
       }
-    
+
       .highlight{
-        background: rgba(244,239,194,0.14); /* pale moon */
+        background: rgba(244,239,194,0.14);
         border-radius: 4px;
         padding: 0 3px;
         box-shadow: inset 0 0 0 1px rgba(244,239,194,0.18);
       }
-    
+
       .loading, .empty-state{
         text-align: center;
         padding: 40px;
         color: var(--muted);
       }
-    
+
       .spinner{
         display:inline-block;
         width:16px; height:16px;
@@ -200,10 +241,9 @@
         animation: spin 1s ease-in-out infinite;
         margin-right:8px;
       }
-    
+
       @keyframes spin { to { transform: rotate(360deg); } }
-    
-      /* Optional: crisp scrollbars in dark mode (Chromium/Edge/Firefox) */
+
       *{
         scrollbar-width: thin;
         scrollbar-color: #3a3f63 transparent;
@@ -219,6 +259,15 @@
   <body>
     <div class="container">
       <div class="search-header">
+        <div class="slayer-search-wrap" aria-label="Slayer Search header">
+          <div class="slayer-search-title">Slayer Search</div>
+          <div class="slayer-search-subtitle">Buffy the Vampire Slayer Search Tool</div>
+          <p class="incantation">
+            “Thespia, goddess, ruler of all darkness — we implore you — open a window to the world of the underbeing. With your knowledge, may we go in safety.”
+            <span class="cite">— Willow, 4×14 “Goodbye Iowa”</span>
+          </p>
+        </div>
+
         <div class="search-box">
           <input
             type="text"
@@ -283,7 +332,6 @@
         const query = searchInput.value.trim();
         if (!query) return;
 
-        // Scroll results panel to top
         const resultsPanel = document.querySelector(".results-panel");
         resultsPanel.scrollTop = 0;
 
@@ -334,7 +382,6 @@
           )
           .join("");
 
-        // Auto-select first result
         if (currentResults.length > 0) {
           selectResult(0);
         }
@@ -344,18 +391,15 @@
         selectedIndex = index;
         const result = currentResults[index];
 
-        // Update selected row styling
         document.querySelectorAll(".result-row").forEach((row, i) => {
           row.classList.toggle("selected", i === index);
         });
 
         fileHeader.textContent = result.episode;
-        
-        // Simply display the full text content with highlighting
+
         fileContent.innerHTML = 
           '<span class="highlight">' + escapeHtml(result.text) + '</span>';
-        
-        // Scroll to top of content
+
         fileContent.scrollTop = 0;
       }
 
