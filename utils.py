@@ -5,7 +5,6 @@ import sqlite_vss
 import json
 from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 import pandas as pd
-import time
 
 
 def get_db_connection():
@@ -101,9 +100,7 @@ def iter_scenes(batch_size: int = 500):
                     "text": r["scene_text"],
                     "file_name": r["file_name"],
                 }
-
             con.commit()
-
     except Exception as e:
         print(f"Error in iter_scenes: {e}")
     finally:
@@ -115,13 +112,12 @@ def batch_insert_into_vss_table(embeddings_data):
     con = get_db_connection()
     cur = con.cursor()
 
-    batch_size = 500  # Smaller batch size for embeddings due to memory usage
+    batch_size = 1000  # Increased from 500 to reduce transaction overhead
 
     try:
         for i in range(0, len(embeddings_data), batch_size):
             batch = embeddings_data[i : i + batch_size]
 
-            # Prepare batch data - convert embeddings to JSON strings
             batch_values = [
                 (row_id, json.dumps(embedding)) for row_id, embedding in batch
             ]
@@ -134,7 +130,7 @@ def batch_insert_into_vss_table(embeddings_data):
                 batch_values,
             )
 
-            con.commit()  # Commit each batch
+            con.commit()
             print(
                 f"Inserted batch {i // batch_size + 1}: {len(batch)} embeddings into window_vss"
             )
@@ -151,9 +147,7 @@ def clear_table(table_name):
     """Clear all data from a table."""
     con = get_db_connection()
     cur = con.cursor()
-
     cur.execute(f"DELETE FROM {table_name}")
-
     con.commit()
     con.close()
 
@@ -214,9 +208,7 @@ def iter_windows(batch_size: int = 500):
                     "text": r["window_text"],
                     "file_name": r["file_name"],
                 }
-
             con.commit()
-
     except Exception as e:
         print(f"Error in iter_windows: {e}")
     finally:
@@ -229,8 +221,7 @@ _models = {}
 
 def initialize_models():
     """Load all models at startup and store them globally."""
-    print("Loading models at startup...")
-    start_time = time.time()
+    print("Loading models...")
 
     config = toml.load("config.toml")
 
@@ -244,8 +235,7 @@ def initialize_models():
         config["EMBEDDING_MODEL"]["crossencoder_model"]
     )
 
-    end_time = time.time()
-    print(f"All models loaded in {end_time - start_time:.2f} seconds")
+    print("Models loaded successfully")
 
 
 def semantic_search(search_query: str, initial_k=10):
@@ -254,7 +244,7 @@ def semantic_search(search_query: str, initial_k=10):
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
-    # Use the pre-loaded model (no loading time)
+    # Use cached model for app performance
     model = _models["bi_encoder"]
 
     # convert to np array and then to bytes (BLOB for sqlite)

@@ -24,8 +24,10 @@ window_size = 7
 step_size = 1
 
 [EMBEDDING_MODEL]
-model_name = "multi-qa-mpnet-base-dot-v1"
-model_dim = 768
+model_name = "all-MiniLM-L6-v2"
+ #model_name = "multi-qa-mpnet-base-dot-v1"
+model_dim = 384
+#model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
 [EVALUATION.search_queries]

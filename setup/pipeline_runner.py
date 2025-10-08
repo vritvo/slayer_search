@@ -10,8 +10,6 @@ from utils import (
     init_window_tables,
     clear_table,
 )
-import toml
-import argparse
 import time
 import gc
 
