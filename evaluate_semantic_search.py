@@ -1,7 +1,7 @@
 import pandas as pd
 import toml
 import os
-from utils import cross_encoder
+from utils import cross_encoder, initialize_models
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,9 @@ def evaluate_semantic_search(
     initial_k: int = 100,
     final_k=10,
 ):
+    # Load models once at the start
+    initialize_models()
+
     # Load config
     config = toml.load("config.toml")
     search_queries = config["EVALUATION"]["search_queries"]

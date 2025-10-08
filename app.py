@@ -1,11 +1,14 @@
 from flask import Flask, render_template, request, jsonify
-from utils import semantic_search, cross_encoder
+from utils import semantic_search, cross_encoder, initialize_models
 import traceback
 import toml
 
 app = Flask(__name__)
 
 USE_CROSS_ENCODER = True
+
+# Load models once at startup
+initialize_models()
 
 
 @app.route("/")

@@ -8,7 +8,6 @@ from utils import (
 
 def make_scene_chunks():
     """Process script chunks and insert them row-by-row into the database."""
-    config = toml.load("config.toml")
 
     con = get_db_connection()
     cur = con.cursor()
@@ -17,11 +16,11 @@ def make_scene_chunks():
 
     try:
         # Process all files in the scripts directory
-        # for file_name in os.listdir("scripts"):
-        for file_name in [
-            "1x01 Welcome to the Hellmouth.txt",
-            "4x12 A New Man.txt",
-        ]:
+        for file_name in os.listdir("scripts"):
+            # for file_name in [
+            #     "1x01 Welcome to the Hellmouth.txt",
+            #     "4x12 A New Man.txt",
+            # ]:
             if not file_name.endswith(".txt"):
                 continue
 

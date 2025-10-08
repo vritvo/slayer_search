@@ -1,13 +1,11 @@
-from dotenv import load_dotenv
-import os
 import sqlite3
 import toml
 import numpy as np
 import sqlite_vss
 import json
-from datetime import datetime
 from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 import pandas as pd
+import time
 
 
 def get_db_connection():
@@ -110,22 +108,6 @@ def iter_scenes(batch_size: int = 500):
         print(f"Error in iter_scenes: {e}")
     finally:
         con.close()
-
-
-#     """Insert a single embedding into the VSS virtual table."""
-#     con = get_db_connection()
-#     cur = con.cursor()
-
-#     cur.execute(
-#         f"""
-#         INSERT INTO window_vss(rowid, embedding)
-#         VALUES (?, ?)
-#     """,
-#         (row_id, json.dumps(embedding)),
-#     )
-
-#     con.commit()
-#     con.close()
 
 
 def batch_insert_into_vss_table(embeddings_data):
@@ -241,17 +223,42 @@ def iter_windows(batch_size: int = 500):
         con.close()
 
 
+# Global model storage
+_models = {}
+
+
+def initialize_models():
+    """Load all models at startup and store them globally."""
+    print("Loading models at startup...")
+    start_time = time.time()
+
+    config = toml.load("config.toml")
+
+    # Load bi-encoder model
+    print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
+    _models["bi_encoder"] = SentenceTransformer(config["EMBEDDING_MODEL"]["model_name"])
+
+    # Load cross-encoder model
+    print(f"Loading cross-encoder: {config['EMBEDDING_MODEL']['crossencoder_model']}")
+    _models["cross_encoder"] = CrossEncoder(
+        config["EMBEDDING_MODEL"]["crossencoder_model"]
+    )
+
+    end_time = time.time()
+    print(f"All models loaded in {end_time - start_time:.2f} seconds")
+
+
 def semantic_search(search_query: str, initial_k=10):
     # connect
     con = get_db_connection()
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
-    config = toml.load("config.toml")
+    # Use the pre-loaded model (no loading time)
+    model = _models["bi_encoder"]
 
     # convert to np array and then to bytes (BLOB for sqlite)
-    model_name = SentenceTransformer(config["EMBEDDING_MODEL"]["model_name"])
-    search_vec = np.asarray(model_name.encode(search_query), dtype=np.float32).tobytes()
+    search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
 
     # search using the VSS virtual table and join with main table
     rows = cur.execute(
@@ -293,22 +300,20 @@ def semantic_search(search_query: str, initial_k=10):
 
 
 def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
-    config = toml.load("config.toml")
     initial_candidates = semantic_search(search_query, initial_k)
-
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 
-    cross_encoder = CrossEncoder(config["EMBEDDING_MODEL"]["crossencoder_model"])
+    # Use the pre-loaded cross-encoder (no loading time)
+    cross_encoder_model = _models["cross_encoder"]
 
     query_doc_pairs = []
-
     for c in initial_candidates:
         query_doc_pairs.append([search_query, c["text"]])
 
     print("Reranking with cross-encoder...")
 
     # Score all pairs with cross-encoder
-    cross_encoder_scores = cross_encoder.predict(query_doc_pairs)
+    cross_encoder_scores = cross_encoder_model.predict(query_doc_pairs)
 
     # Add cross-encoder scores to candidates - convert to Python float for JSON serialization
     for i, candidate in enumerate(initial_candidates):
