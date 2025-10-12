@@ -112,7 +112,7 @@ def batch_insert_into_vss_table(embeddings_data):
     con = get_db_connection()
     cur = con.cursor()
 
-    batch_size = 1000  # Increased from 500 to reduce transaction overhead
+    batch_size = 1000
 
     try:
         for i in range(0, len(embeddings_data), batch_size):
@@ -244,6 +244,10 @@ def semantic_search(search_query: str, initial_k=10):
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
+    # Config
+    config = toml.load("config.toml")
+    initial_k_buffer = config["SEARCH"]["initial_k_buffer"]
+
     # Use cached model for app performance
     model = _models["bi_encoder"]
 
@@ -253,7 +257,7 @@ def semantic_search(search_query: str, initial_k=10):
     # search using the VSS virtual table and join with main table
     rows = cur.execute(
         f"""
-    SELECT e.file_name, e.window_id_in_scene, e.window_text, v.distance
+    SELECT e.file_name, e.scene_id, e.window_id_in_scene, e.window_text, v.distance
     FROM window_vss v
     JOIN window e ON e.rowid = v.rowid
     WHERE vss_search(
@@ -262,11 +266,16 @@ def semantic_search(search_query: str, initial_k=10):
     )
     ORDER BY v.distance
     """,
-        (search_vec, initial_k),
+        (
+            search_vec,
+            initial_k * initial_k_buffer,
+        ),  # We would just do initial K here, but we need a buffer because we'll deduplicate chunks within a scene
     ).fetchall()
 
     con.close()
     results = []
+    included_scenes = set()
+    initial_k_counter = 0
 
     for i, row in enumerate(rows):
         text_content = row["window_text"]
@@ -274,18 +283,24 @@ def semantic_search(search_query: str, initial_k=10):
             text_content[:200] + "..." if len(text_content) > 200 else text_content
         )
 
-        results.append(
-            {
-                "rank": i + 1,
-                "episode": row["file_name"],
-                "scene_id": row["window_id_in_scene"],
-                "text": text_content,
-                "score": f"{1 - row['distance']:.3f}",  # Convert distance to similarity
-                "preview": preview,
-                "distance": row["distance"],  # Keep original distance for reference
-            }
-        )
-
+        # If the scene has not already been included in one of the top results, we skip it.
+        if row["scene_id"] not in included_scenes:
+            included_scenes.add(row["scene_id"])
+            results.append(
+                {
+                    "rank": i + 1,
+                    "episode": row["file_name"],
+                    "scene_id": row["scene_id"],
+                    "chunk_id": row["window_id_in_scene"],
+                    "text": text_content,
+                    "score": f"{1 - row['distance']:.3f}",  # Convert distance to similarity
+                    "preview": preview,
+                    "distance": row["distance"],  # Keep original distance for reference
+                }
+            )
+            initial_k_counter += 1
+            if initial_k_counter >= initial_k:
+                return results
     return results
 
 
@@ -323,7 +338,7 @@ def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
             {
                 "rank": i + 1,
                 "episode": val["episode"],
-                "scene_id": val["scene_id"],
+                "chunk_id": val["chunk_id"],
                 "text": val["text"],
                 "score": f"{val['x_score']:.3f}",  # Use cross-encoder score
                 "preview": val["preview"],
