@@ -39,9 +39,17 @@ def make_scene_chunks():
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
-                if line.strip().lower().startswith(
-                    "cut "
-                ) | line.strip().lower().startswith("(cut "):
+                if (
+                    line.strip().lower().startswith("cut ")
+                    | line.strip().lower().startswith("(cut ")
+                    | line.strip().lower().startswith("dissolve to")
+                    | line.strip().lower().startswith("~~~~~~~")
+                    | line.strip().lower().startswith("==")
+                    | line.strip().lower().startswith("***")
+                    | line.strip().lower().startswith("act ")
+                    | line.strip().lower().startswith("episode opens")
+                    | line.strip().lower().startswith("open on")
+                ):
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
                         chunk_text = "\n".join(curr_chunk).strip()
@@ -116,12 +124,16 @@ def make_window_chunk(chunk):
     formatted_lines = [line.strip() for line in formatted_lines if line.strip()]
 
     script_chunks = []
-    i = 0
+    w_start = 0
 
-    while i < len(formatted_lines):
+    # slices of formatted lines
+    slices = []
+
+    while w_start < len(formatted_lines):
         # Create window of formatted lines
-        window_end = min(i + window_size, len(formatted_lines))
-        window_formatted_lines = formatted_lines[i:window_end]
+        w_end = min(w_start + window_size, len(formatted_lines))
+        window_formatted_lines = formatted_lines[w_start:w_end]
+        slices.append([w_start, w_end])
 
         # Join the formatted lines back with double newlines
         chunk_text = "\n\n".join(window_formatted_lines).strip()
@@ -129,25 +141,27 @@ def make_window_chunk(chunk):
             script_chunks.append(chunk_text)
 
         # Move window forward by step_size
-        i += step_size
+        w_start += step_size
 
         # Break if we've reached the end
-        if window_end >= len(formatted_lines):
+        if w_end >= len(formatted_lines):
             break
 
-    return script_chunks
+    return script_chunks, slices
 
 
 def iter_windows_from_scenes():
     """Read each scene, make windows from them."""
 
     for scene in iter_scenes():
-        windows = make_window_chunk(scene["text"])
+        windows, slices = make_window_chunk(scene["text"])
 
-        for w_idx, w_text in enumerate(windows):
+        for w_idx, (w_text, slice) in enumerate(zip(windows, slices)):
             yield {
                 "scene_id": scene["scene_id"],
                 "window_id_in_scene": w_idx,
+                "window_start": slice[0],
+                "window_end": slice[1],
                 "window_text": w_text,
                 "file_name": scene["file_name"],
             }
@@ -170,6 +184,8 @@ def insert_window_db():
                 (
                     row["scene_id"],
                     row["window_id_in_scene"],
+                    row["window_start"],
+                    row["window_end"],
                     row["window_text"],
                     row["file_name"],
                 )
@@ -180,8 +196,8 @@ def insert_window_db():
                 cur.executemany(
                     f"""
                     INSERT INTO {table_name}
-                    (scene_id, window_id_in_scene, window_text, file_name)
-                    VALUES (?, ?, ?, ?)
+                    (scene_id, window_id_in_scene, window_start, window_end, window_text, file_name)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """,
                     batch,
                 )
@@ -195,8 +211,8 @@ def insert_window_db():
             cur.executemany(
                 f"""
                 INSERT INTO {table_name}
-                (scene_id, window_id_in_scene, window_text, file_name)
-                VALUES (?, ?, ?, ?)
+                (scene_id, window_id_in_scene, window_start, window_end, window_text, file_name)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
                 batch,
             )

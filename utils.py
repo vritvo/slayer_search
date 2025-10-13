@@ -64,7 +64,9 @@ def init_window_tables():
             scene_id INTEGER,
             window_id_in_scene INTEGER,
             window_text TEXT,
-            file_name TEXT
+            file_name TEXT,
+            window_start INTEGER,
+            window_end INTEGER
         )
     """)
 
