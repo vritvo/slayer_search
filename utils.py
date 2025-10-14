@@ -58,7 +58,7 @@ def init_window_tables():
     embedding_dim = config["EMBEDDING_MODEL"]["model_dim"]
 
     # Create the window table
-    cur.execute(f"""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS window (
             window_id INTEGER PRIMARY KEY AUTOINCREMENT,
             scene_id INTEGER,
@@ -125,7 +125,7 @@ def batch_insert_into_vss_table(embeddings_data):
             ]
 
             cur.executemany(
-                f"""
+                """
                 INSERT INTO window_vss(rowid, embedding)
                 VALUES (?, ?)
             """,
@@ -240,6 +240,28 @@ def initialize_models():
     print("Models loaded successfully")
 
 
+def get_scene_from_id(scene_ids: tuple):
+    # connect
+    con = get_db_connection()
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    rows = cur.execute(
+        f"""
+        SELECT scene_id, scene_text, file_name
+        FROM SCENE
+        WHERE scene_id IN {scene_ids}
+        ORDER BY scene_id;"""
+    ).fetchall()
+
+    print(scene_ids)
+    results = {}
+    for row in rows:
+        results[row["scene_id"]] = row["scene_text"]
+
+    return results
+
+
 def semantic_search(search_query: str, initial_k=10):
     # connect
     con = get_db_connection()
@@ -258,7 +280,7 @@ def semantic_search(search_query: str, initial_k=10):
 
     # search using the VSS virtual table and join with main table
     rows = cur.execute(
-        f"""
+        """
     SELECT e.file_name, e.scene_id, e.window_start, e.window_end, e.window_id_in_scene, e.window_text, v.distance
     FROM window_vss v
     JOIN window e ON e.rowid = v.rowid
@@ -335,6 +357,12 @@ def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
         initial_candidates, key=lambda x: x["x_score"], reverse=True
     )[:final_k]
 
+    scene_ids = set()
+    for i, result in enumerate(reranked_results):
+        scene_ids.add(result["scene_id"])
+    scene_ids = tuple(scene_ids)
+    scene_id_dict = get_scene_from_id(scene_ids)
+
     # Update results with final formatting
     results = []
     for i, val in enumerate(reranked_results):
@@ -343,6 +371,7 @@ def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
                 "rank": i + 1,
                 "episode": val["episode"],
                 "scene_id": val["scene_id"],
+                "scene_text": scene_id_dict[val["scene_id"]],
                 "window_start": val["window_start"],
                 "window_end": val["window_end"],
                 "chunk_id": val["chunk_id"],
