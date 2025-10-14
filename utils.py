@@ -259,7 +259,7 @@ def semantic_search(search_query: str, initial_k=10):
     # search using the VSS virtual table and join with main table
     rows = cur.execute(
         f"""
-    SELECT e.file_name, e.scene_id, e.window_id_in_scene, e.window_text, v.distance
+    SELECT e.file_name, e.scene_id, e.window_start, e.window_end, e.window_id_in_scene, e.window_text, v.distance
     FROM window_vss v
     JOIN window e ON e.rowid = v.rowid
     WHERE vss_search(
@@ -293,6 +293,8 @@ def semantic_search(search_query: str, initial_k=10):
                     "rank": i + 1,
                     "episode": row["file_name"],
                     "scene_id": row["scene_id"],
+                    "window_start": row["window_start"],
+                    "window_end": row["window_end"],
                     "chunk_id": row["window_id_in_scene"],
                     "text": text_content,
                     "score": f"{1 - row['distance']:.3f}",  # Convert distance to similarity
@@ -340,6 +342,9 @@ def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
             {
                 "rank": i + 1,
                 "episode": val["episode"],
+                "scene_id": val["scene_id"],
+                "window_start": val["window_start"],
+                "window_end": val["window_end"],
                 "chunk_id": val["chunk_id"],
                 "text": val["text"],
                 "score": f"{val['x_score']:.3f}",  # Use cross-encoder score
