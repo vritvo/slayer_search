@@ -240,26 +240,38 @@ def initialize_models():
     print("Models loaded successfully")
 
 
-def get_scene_from_id(scene_ids: tuple):
-    # connect
+def get_scene_from_id(scene_ids: tuple) -> dict:
+    """Fetch scene text for given scene IDs."""
+    if not scene_ids:
+        return {}
+    
     con = get_db_connection()
-    con.row_factory = sqlite3.Row
-    cur = con.cursor()
-
-    rows = cur.execute(
-        f"""
-        SELECT scene_id, scene_text, file_name
-        FROM SCENE
-        WHERE scene_id IN {scene_ids}
-        ORDER BY scene_id;"""
-    ).fetchall()
-
-    print(scene_ids)
-    results = {}
-    for row in rows:
-        results[row["scene_id"]] = row["scene_text"]
-
-    return results
+    try:
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        
+        # Use parameterized query for safety
+        placeholders = ','.join('?' * len(scene_ids)) # technically we could just use the scene_ids tuple directly, but this is more robust
+        rows = cur.execute(
+            f"""
+            SELECT scene_id, scene_text, file_name
+            FROM scene
+            WHERE scene_id IN ({placeholders})
+            ORDER BY scene_id
+            """,
+            scene_ids
+        ).fetchall()
+        
+        results = {}
+        for row in rows:
+            results[row["scene_id"]] = row["scene_text"]
+        
+        return results
+    except Exception as e:
+        print(f"Error in get_scene_from_id: {e}")
+        return {}
+    finally:
+        con.close()
 
 
 def semantic_search(search_query: str, initial_k=10):
