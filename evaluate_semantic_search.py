@@ -78,5 +78,27 @@ def evaluate_semantic_search(
     return eval_df
 
 
+def meta_evaluator():
+    # Load config
+    config = toml.load("config.toml")
+    eval_path = config["EVALUATION"]["params"]["output_path"]
+
+    eval_df = pd.read_csv(eval_path)
+    query_and_run_table = eval_df.groupby(['evaluation_id', 'query', 'bi_encoder_model', 'chunk_size', 'overlap', 'initial_k', 'final_k', 'date'])['correct_match'].sum().reset_index()
+    run_table = query_and_run_table.groupby('evaluation_id')['correct_match'].mean().reset_index()
+    run_table.to_csv('eval/meta_evaluation.csv')
+
 if __name__ == "__main__":
     evaluate_semantic_search()
+    meta_evaluator()
+
+
+
+# take the raw table
+# group by evaluation_id & query
+    # true / false for the match
+# group by evaluation_id 
+    # find the # of the "correct" answer (otherwise null)
+    # save all the hyperparameters, 1 row per evaluation run 
+# save as a separate table     
+    
