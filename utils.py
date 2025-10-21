@@ -36,7 +36,7 @@ def init_scene_tables():
     cur = con.cursor()
 
     # Create the scene table
-    cur.execute(f"""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS scene (
             scene_id INTEGER PRIMARY KEY AUTOINCREMENT,
             scene_id_in_episode INTEGER,
@@ -174,17 +174,18 @@ def make_embeddings():
         all_ids.append(db_chunk_row["window_id"])
 
     print(f"Creating embeddings for {len(all_chunks)} window chunks...")
-    all_embeddings = model.encode(all_chunks)
-    # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
+    if not model_name.startswith("cde"):
+        all_embeddings = model.encode(all_chunks)
+        # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
-    # Prepare embeddings data for batch insertion
-    embeddings_data = []
-    for chunk_id, embedding in zip(all_ids, all_embeddings):
-        embeddings_data.append((chunk_id, embedding.tolist()))
+        # Prepare embeddings data for batch insertion
+        embeddings_data = []
+        for chunk_id, embedding in zip(all_ids, all_embeddings):
+            embeddings_data.append((chunk_id, embedding.tolist()))
 
-    # Actually insert the embeddings into the database
-    print(f"Batch inserting {len(embeddings_data)} window embeddings...")
-    batch_insert_into_vss_table(embeddings_data)
+        # Actually insert the embeddings into the database
+        print(f"Batch inserting {len(embeddings_data)} window embeddings...")
+        batch_insert_into_vss_table(embeddings_data)
 
 
 def iter_windows(batch_size: int = 500):
@@ -198,6 +199,7 @@ def iter_windows(batch_size: int = 500):
             FROM window
             ORDER BY file_name, scene_id, window_id_in_scene
         """)
+
         while True:
             rows = cur.fetchmany(batch_size)
             if not rows:
@@ -244,14 +246,16 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
     """Fetch scene text for given scene IDs."""
     if not scene_ids:
         return {}
-    
+
     con = get_db_connection()
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        
+
         # Use parameterized query for safety
-        placeholders = ','.join('?' * len(scene_ids)) # technically we could just use the scene_ids tuple directly, but this is more robust
+        placeholders = ",".join(
+            "?" * len(scene_ids)
+        )  # technically we could just use the scene_ids tuple directly, but this is more robust
         rows = cur.execute(
             f"""
             SELECT scene_id, scene_text, file_name
@@ -259,13 +263,13 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
             WHERE scene_id IN ({placeholders})
             ORDER BY scene_id
             """,
-            scene_ids
+            scene_ids,
         ).fetchall()
-        
+
         results = {}
         for row in rows:
             results[row["scene_id"]] = row["scene_text"]
-        
+
         return results
     except Exception as e:
         print(f"Error in get_scene_from_id: {e}")
