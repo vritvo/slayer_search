@@ -183,10 +183,28 @@ def make_embeddings():
         # Train Model 1
         # make the mini corpus.
 
-        # TODO: sample evenly from each season.
+        # Divide chunks by season by creating a dict: {season: [chunks]}
+        seasons = {}
+        for chunk in all_chunks:
+            season = chunk.split("episode: ")[1].split("x")[0]
+            if season not in seasons:
+                seasons[season] = []
+            seasons[season].append(chunk)
+
         context_size = model[0].config.transductive_corpus_size
-        mini_corpus = random.sample(all_chunks, k=context_size)
-        assert len(mini_corpus) == context_size
+        mini_corpus = []
+
+        # Iterate over the chunks for each season, and sample evenly.
+        for season_chunks in seasons.values():
+            mini_corpus.extend(
+                random.sample(season_chunks, k=context_size // len(seasons))
+            )
+        # In case of rounding issues, adjust the size of mini_corpus (without duplicates)
+        while len(mini_corpus) < context_size:
+            choice = random.choice(all_chunks)
+            if choice not in mini_corpus:
+                mini_corpus.append(choice)
+
         print("Train Model 2")
         # Compute the dataset context embeddings
         context_embeddings = model.encode(
@@ -206,9 +224,6 @@ def make_embeddings():
             dataset_embeddings=context_embeddings,  # the context set from step 2
             convert_to_tensor=False,
         )
-
-        # TODO: check do I need to normalize?
-        # TODO: encode query with context as well.
 
     else:
         all_embeddings = model.encode(all_chunks)
