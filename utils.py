@@ -7,6 +7,7 @@ import json
 from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 import pandas as pd
 import torch
+import time
 
 
 def get_db_connection():
@@ -205,11 +206,13 @@ def make_embeddings():
             if choice not in mini_corpus:
                 mini_corpus.append(choice)
 
-        print("Train Model 2")
         # Compute the dataset context embeddings
+        start_time = time.time()
         context_embeddings = model.encode(
             mini_corpus, prompt_name="document", convert_to_tensor=True
         )
+        end_time = time.time()
+        print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
 
         # Persist for reuse (both indexing and queries will need the same tensor)
         torch.save(context_embeddings, "buffy_dataset_context.pt")
@@ -218,15 +221,22 @@ def make_embeddings():
         _models["context_embeddings"] = context_embeddings
 
         # Train model 2:
+        start_time = time.time()
+        print("Train Model 2")
         all_embeddings = model.encode(
             all_chunks,  # your full corpus (same granularity you’ll retrieve)
             prompt_name="document",  # IMPORTANT: document prompt
             dataset_embeddings=context_embeddings,  # the context set from step 2
             convert_to_tensor=False,
         )
+        end_time = time.time()
+        print(f"Computed all embeddings in {end_time - start_time:.2f} seconds.")
 
     else:
+        start_time = time.time()
         all_embeddings = model.encode(all_chunks)
+        end_time = time.time()
+        print(f"Computed all embeddings in {end_time - start_time:.2f} seconds.")
         # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
     # Prepare embeddings data for batch insertion
