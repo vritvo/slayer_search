@@ -4,7 +4,7 @@ EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
 
 # Database paths for different embedding models
-db_path = "./vector_db-multi-qa-mpnet-base-dot-v1.db"
+db_path = "./vector_db-test.db"
 
 # Web Scraping Values
 
@@ -26,7 +26,7 @@ step_size = 3
 
 [EMBEDDING_MODEL]
 #model_name = "all-MiniLM-L6-v2"
-model_name = "multi-qa-mpnet-base-dot-v1"
+model_name = "jxm/cde-small-v2"
 #model_dim = 384
 model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"

@@ -9,6 +9,7 @@ from utils import (
     init_scene_tables,
     init_window_tables,
     clear_table,
+    initialize_models,
 )
 import time
 import gc
@@ -49,6 +50,7 @@ def run_full_pipeline():
     gc.collect()
 
     print("\n3. Creating window embeddings...")
+    initialize_models()
     make_embeddings()  # Create embeddings for window chunks only
 
     print("\nPipeline completed successfully!")

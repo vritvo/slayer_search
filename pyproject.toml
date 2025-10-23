@@ -14,4 +14,5 @@ dependencies = ["bs4",
                 "pandas",
                 "sqlite-vss",
                 "sentence_transformers",
-                "flask"]
+                "flask", 
+                "torch"]

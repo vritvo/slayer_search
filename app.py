@@ -2,13 +2,15 @@ from flask import Flask, render_template, request, jsonify
 from utils import semantic_search, cross_encoder, initialize_models
 import traceback
 import toml
+import torch
 
 app = Flask(__name__)
 
-USE_CROSS_ENCODER = True
+USE_CROSS_ENCODER = False
 
 # Load models once at startup
 initialize_models()
+context_embeddings = torch.load("buffy_dataset_context.pt")
 
 
 @app.route("/")
@@ -49,6 +51,7 @@ def perform_search(query: str):
     else:  # Without reranker - worse but faster results.
         return semantic_search(
             query,
+            context_embeddings=context_embeddings,
             initial_k=initial_k,
         )
 

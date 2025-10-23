@@ -1,3 +1,4 @@
+import random
 import sqlite3
 import toml
 import numpy as np
@@ -5,6 +6,7 @@ import sqlite_vss
 import json
 from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 import pandas as pd
+import torch
 
 
 def get_db_connection():
@@ -163,7 +165,9 @@ def make_embeddings():
 
     config = toml.load("config.toml")
     model_name = config["EMBEDDING_MODEL"]["model_name"]
-    model = SentenceTransformer(model_name)
+    print(model_name)
+    # model = SentenceTransformer(model_name)
+    model = _models["bi_encoder"]
 
     all_chunks = []
     all_ids = []
@@ -174,18 +178,47 @@ def make_embeddings():
         all_ids.append(db_chunk_row["window_id"])
 
     print(f"Creating embeddings for {len(all_chunks)} window chunks...")
-    if not model_name.startswith("cde"):
+    if model_name.startswith("jxm/cde"):
+        print("Train Model 1")
+        # Train Model 1
+        # make the mini corpus.
+
+        # TODO: sample evenly from each season.
+        context_size = model[0].config.transductive_corpus_size
+        mini_corpus = random.sample(all_chunks, k=context_size)
+        assert len(mini_corpus) == context_size
+        print("Train Model 2")
+        # Compute the dataset context embeddings
+        context_embeddings = model.encode(
+            mini_corpus, prompt_name="document", convert_to_tensor=True
+        )
+
+        # Persist for reuse (both indexing and queries will need the same tensor)
+        torch.save(context_embeddings, "buffy_dataset_context.pt")
+
+        # Train model 2:
+        all_embeddings = model.encode(
+            all_chunks,  # your full corpus (same granularity you’ll retrieve)
+            prompt_name="document",  # IMPORTANT: document prompt
+            dataset_embeddings=context_embeddings,  # the context set from step 2
+            convert_to_tensor=False,
+        )
+
+        # TODO: check do I need to normalize?
+        # TODO: encode query with context as well.
+
+    else:
         all_embeddings = model.encode(all_chunks)
         # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
-        # Prepare embeddings data for batch insertion
-        embeddings_data = []
-        for chunk_id, embedding in zip(all_ids, all_embeddings):
-            embeddings_data.append((chunk_id, embedding.tolist()))
+    # Prepare embeddings data for batch insertion
+    embeddings_data = []
+    for chunk_id, embedding in zip(all_ids, all_embeddings):
+        embeddings_data.append((chunk_id, embedding.tolist()))
 
-        # Actually insert the embeddings into the database
-        print(f"Batch inserting {len(embeddings_data)} window embeddings...")
-        batch_insert_into_vss_table(embeddings_data)
+    # Actually insert the embeddings into the database
+    print(f"Batch inserting {len(embeddings_data)} window embeddings...")
+    batch_insert_into_vss_table(embeddings_data)
 
 
 def iter_windows(batch_size: int = 500):
@@ -228,11 +261,14 @@ def initialize_models():
     print("Loading models...")
 
     config = toml.load("config.toml")
-
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
     # Load bi-encoder model
     print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
-    _models["bi_encoder"] = SentenceTransformer(config["EMBEDDING_MODEL"]["model_name"])
 
+    if model_name.startswith("jxm/cde"):
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
+    else:
+        _models["bi_encoder"] = SentenceTransformer(model_name)
     # Load cross-encoder model
     print(f"Loading cross-encoder: {config['EMBEDDING_MODEL']['crossencoder_model']}")
     _models["cross_encoder"] = CrossEncoder(
@@ -278,12 +314,14 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
         con.close()
 
 
-def semantic_search(search_query: str, initial_k=10):
+def semantic_search(search_query: str, context_embeddings, initial_k=10):
+    config = toml.load("config.toml")
     # connect
     con = get_db_connection()
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
     # Config
     config = toml.load("config.toml")
     initial_k_buffer = config["SEARCH"]["initial_k_buffer"]
@@ -292,7 +330,18 @@ def semantic_search(search_query: str, initial_k=10):
     model = _models["bi_encoder"]
 
     # convert to np array and then to bytes (BLOB for sqlite)
-    search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
+
+    if model_name.startswith("jxm/cde"):
+        # encode with CDE method
+        search_vec = model.encode(
+            search_query,
+            prompt_name="query",
+            dataset_embeddings=context_embeddings,
+            convert_to_tensor=False,
+        )
+
+    else:
+        search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
 
     # search using the VSS virtual table and join with main table
     rows = cur.execute(
@@ -347,7 +396,16 @@ def semantic_search(search_query: str, initial_k=10):
 
 
 def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
-    initial_candidates = semantic_search(search_query, initial_k)
+    # Need to load context embeddings for CDE models
+    config = toml.load("config.toml")
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
+
+    context_embeddings = None
+    if model_name.startswith("jxm/cde"):
+        context_embeddings = torch.load("buffy_dataset_context.pt")
+
+    initial_candidates = semantic_search(search_query, context_embeddings, initial_k)
+
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 
     # Use the pre-loaded cross-encoder (no loading time)
