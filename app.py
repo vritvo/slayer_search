@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from utils import semantic_search, cross_encoder, initialize_models
 import traceback
 import toml
-import torch
+
 
 app = Flask(__name__)
 

@@ -424,7 +424,15 @@ def semantic_search(search_query: str, initial_k=10):
             )
             initial_k_counter += 1
             if initial_k_counter >= initial_k:
-                return results
+                break
+    # Fetch scene texts for all results (like in cross_encoder)
+    scene_ids = tuple(result["scene_id"] for result in results)
+    scene_id_dict = get_scene_from_id(scene_ids)
+
+    # Add scene_text to each result
+    for result in results:
+        result["scene_text"] = scene_id_dict.get(result["scene_id"], "")
+
     return results
 
 
