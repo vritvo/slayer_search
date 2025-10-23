@@ -15,4 +15,7 @@ dependencies = ["bs4",
                 "sqlite-vss",
                 "sentence_transformers",
                 "flask", 
-                "torch"]
+                "torch",
+                "jupyterlab",
+                "notebook",
+                "ipykernel"]
