@@ -196,6 +196,9 @@ def make_embeddings():
         # Persist for reuse (both indexing and queries will need the same tensor)
         torch.save(context_embeddings, "buffy_dataset_context.pt")
 
+        # Update the cached embeddings in global storage
+        _models["context_embeddings"] = context_embeddings
+
         # Train model 2:
         all_embeddings = model.encode(
             all_chunks,  # your full corpus (same granularity you’ll retrieve)
@@ -267,8 +270,19 @@ def initialize_models():
 
     if model_name.startswith("jxm/cde"):
         _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
+        # Try to load context embeddings if they exist, but don't fail if they don't
+        try:
+            _models["context_embeddings"] = torch.load("buffy_dataset_context.pt")
+            print("Loaded existing context embeddings for CDE model")
+        except FileNotFoundError:
+            print(
+                "Context embeddings not found - will be created when running make_embeddings()"
+            )
+            _models["context_embeddings"] = None
     else:
         _models["bi_encoder"] = SentenceTransformer(model_name)
+        _models["context_embeddings"] = None
+
     # Load cross-encoder model
     print(f"Loading cross-encoder: {config['EMBEDDING_MODEL']['crossencoder_model']}")
     _models["cross_encoder"] = CrossEncoder(
@@ -314,23 +328,26 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
         con.close()
 
 
-def semantic_search(search_query: str, context_embeddings, initial_k=10):
+def semantic_search(search_query: str, initial_k=10):
     config = toml.load("config.toml")
     # connect
     con = get_db_connection()
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
-    model_name = config["EMBEDDING_MODEL"]["model_name"]
     # Config
-    config = toml.load("config.toml")
     initial_k_buffer = config["SEARCH"]["initial_k_buffer"]
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
 
     # Use cached model for app performance
     model = _models["bi_encoder"]
 
-    # convert to np array and then to bytes (BLOB for sqlite)
+    # Initialize context_embeddings for all model types
+    context_embeddings = None
+    if model_name.startswith("jxm/cde"):
+        context_embeddings = _models.get("context_embeddings")
 
+    # convert to np array and then to bytes (BLOB for sqlite)
     if model_name.startswith("jxm/cde"):
         # encode with CDE method
         search_vec = model.encode(
@@ -339,7 +356,8 @@ def semantic_search(search_query: str, context_embeddings, initial_k=10):
             dataset_embeddings=context_embeddings,
             convert_to_tensor=False,
         )
-
+        # Convert to bytes for sqlite-vss
+        search_vec = np.asarray(search_vec, dtype=np.float32).tobytes()
     else:
         search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
 
@@ -396,15 +414,8 @@ def semantic_search(search_query: str, context_embeddings, initial_k=10):
 
 
 def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10):
-    # Need to load context embeddings for CDE models
-    config = toml.load("config.toml")
-    model_name = config["EMBEDDING_MODEL"]["model_name"]
-
-    context_embeddings = None
-    if model_name.startswith("jxm/cde"):
-        context_embeddings = torch.load("buffy_dataset_context.pt")
-
-    initial_candidates = semantic_search(search_query, context_embeddings, initial_k)
+    # Use cached context embeddings instead of loading from disk every time
+    initial_candidates = semantic_search(search_query, initial_k=initial_k)
 
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 
