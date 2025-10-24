@@ -1,13 +1,14 @@
 import pandas as pd
 import toml
 import os
+import argparse
 from utils import semantic_search, initialize_models
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def evaluate_semantic_search():
+def evaluate_semantic_search(notes=""):
     # Load models once at the start
     initialize_models()
 
@@ -47,6 +48,7 @@ def evaluate_semantic_search():
         rows_df["overlap"] = overlap
         rows_df["initial_k"] = initial_k
         rows_df["final_k"] = final_k
+        rows_df["notes"] = notes
 
         # group by evaluation ID & query
 
@@ -75,13 +77,16 @@ def evaluate_semantic_search():
     return eval_df
 
 
-def meta_evaluator():
+def meta_evaluator(notes=""):
     # Load config
     config = toml.load("config.toml")
     initial_k = config["SEARCH"]["initial_k"]
 
     eval_path = config["EVALUATION"]["params"]["output_path"]
     eval_df = pd.read_csv(eval_path)
+    
+    # Fill NaN values in notes column with empty string
+    eval_df['notes'] = eval_df['notes'].fillna('')
     meta_columns = [
         "evaluation_id",
         "query",
@@ -91,6 +96,7 @@ def meta_evaluator():
         "initial_k",
         "final_k",
         "date",
+        "notes",
     ]
 
     # 1) Find the rank for each query in each evaluation (including where the value isn't returned, assuming it's then at initial_k + 1)
@@ -113,12 +119,26 @@ def meta_evaluator():
     )
     # 4 Merge by evaluation_id:
     meta_columns.remove("query")
-    print(meta_columns)
-    final_results=final_results.groupby(meta_columns)[["rank", "correct_match"]].mean()
+    final_results = final_results.groupby(meta_columns)[
+        ["rank", "correct_match"]
+    ].mean()
+
+    # Convert correct_match to percentage
+    final_results["correct_match"] = final_results["correct_match"] * 100
 
     final_results.to_csv("eval/meta_evaluation.csv")
 
 
 if __name__ == "__main__":
-    evaluate_semantic_search()
-    meta_evaluator()
+    parser = argparse.ArgumentParser(description="Evaluate semantic search")
+    parser.add_argument(
+        "--notes",
+        "--n",
+        type=str,
+        default="",
+        help="Optional notes about this specific evaluation run",
+    )
+    args = parser.parse_args()
+
+    evaluate_semantic_search(notes=args.notes)
+    meta_evaluator(notes=args.notes)

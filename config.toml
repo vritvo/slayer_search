@@ -4,8 +4,8 @@ EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
 
 # Database paths for different embedding models
-db_path = "./vector_db-cde.db"
-
+#db_path = "./vector_db-cde.db"
+db_path = "./vector_db-mutli-qa-mpnet-base-dot-v1.db"
 # Web Scraping Values
 
 FOREVER_DREAMING_URL = "https://transcripts.foreverdreaming.org/viewtopic.php?t=8296&sid=943ebb32f0511dfed8eaf1a1e89614ec"
@@ -26,7 +26,8 @@ step_size = 3
 
 [EMBEDDING_MODEL]
 #model_name = "all-MiniLM-L6-v2"
-model_name = "jxm/cde-small-v2"
+model_name = "multi-qa-mpnet-base-dot-v1"
+#model_name = "jxm/cde-small-v2"
 #model_dim = 384
 model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
@@ -48,6 +49,8 @@ crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 "willow kills warren" = """Willow makes a casual gesture with one hand. A bolt of magic rips through Warren and tears the skin off his body in a single piece."""
 "season 6 buffy and willow talk at racks." = """Let me tell you something about Willow. (advancing toward Buffy) She's a loser."""
 "spike and drusilla talking. she says that he's obsessed with the slayer. there's a demon with them" = """You can't blame the ghoul, Spike. You're all covered with her. I look at you... all I see is the Slayer."""
+"spike and buffy are bickering. he's in the bathtub." = """Comfy? I'm chained in a bathtub drinkin' pig's blood from a novelty mug. Doesn't rank huge in the Zagut's Guide."""
+"giles and buffy's mom sit on the floor listening to music" = """Do you like Seals and Croft?"""
 
 [EVALUATION.params]
 output_path = "eval/evaluation.csv"

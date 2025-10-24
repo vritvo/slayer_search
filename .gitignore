@@ -10,6 +10,7 @@ Python
 .env
 .DS_Store
 logs/
+.ipynb_checkpoints/
 
 # Virtual environments
 .venv
