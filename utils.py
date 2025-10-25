@@ -192,26 +192,51 @@ def make_embeddings():
             if season not in seasons:
                 seasons[season] = []
             seasons[season].append(chunk)
+        # Randomly shuffle the chunks in each season
+        for season in seasons:
+            random.shuffle(seasons[season])
 
         context_size = model[0].config.transductive_corpus_size
-        mini_corpus = []
+        multiples = 2
 
-        # Iterate over the chunks for each season, and sample evenly.
-        for season_chunks in seasons.values():
-            mini_corpus.extend(
-                random.sample(season_chunks, k=context_size // len(seasons))
-            )
-        # In case of rounding issues, adjust the size of mini_corpus (without duplicates)
-        while len(mini_corpus) < context_size:
-            choice = random.choice(all_chunks)
-            if choice not in mini_corpus:
-                mini_corpus.append(choice)
-
-        # Compute the dataset context embeddings
         start_time = time.time()
-        context_embeddings = model.encode(
-            mini_corpus, prompt_name="document", convert_to_tensor=True
-        )
+
+        context_embeddings_multiple = []
+        for m in range(multiples):
+            mini_corpus = []
+
+            # Iterate over the chunks for each season, and sample evenly.
+            for season_name, season_chunks in seasons.items():
+                k = context_size // len(seasons)
+
+                # Check if we have enough chunks left in this season
+                if len(season_chunks) >= k:
+                    # Sample k chunks from the end (or could use random.sample)
+                    sampled_chunks = season_chunks[-k:]
+                    mini_corpus.extend(sampled_chunks)
+                    # Remove the used chunks from the season
+                    seasons[season_name] = season_chunks[:-k]
+                else:
+                    # If not enough chunks left, take all remaining
+                    mini_corpus.extend(season_chunks)
+                    seasons[season_name] = []
+
+            # In case of rounding issues or exhausted seasons, fill up to context_size
+            while len(mini_corpus) < context_size:
+                choice = random.choice(all_chunks)
+                if choice not in mini_corpus:
+                    mini_corpus.append(choice)
+
+            print(f"Mini corpus {m + 1} size: {len(mini_corpus)}")
+
+            # Compute the dataset context embeddings
+            context_embeddings = model.encode(
+                mini_corpus, prompt_name="document", convert_to_tensor=True
+            )
+            context_embeddings_multiple.append(context_embeddings)
+
+        context_embeddings = torch.sum(torch.stack(context_embeddings_multiple), dim=0)
+
         end_time = time.time()
         print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
 
