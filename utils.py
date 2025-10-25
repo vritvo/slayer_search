@@ -1,4 +1,5 @@
 import random
+import re
 import sqlite3
 import toml
 import numpy as np
@@ -367,6 +368,10 @@ def semantic_search(search_query: str, initial_k=10):
     # Use cached model for app performance
     model = _models["bi_encoder"]
 
+    # Keyword generation and text preprocessing:
+    keywords = re.findall(r'"(.*?)"', search_query)
+    search_query = search_query.replace('"', "")
+
     # Initialize context_embeddings for all model types
     context_embeddings = None
     if model_name.startswith("jxm/cde"):
@@ -386,23 +391,34 @@ def semantic_search(search_query: str, initial_k=10):
     else:
         search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
 
-    # search using the VSS virtual table and join with main table
-    rows = cur.execute(
-        """
+    # Params to pass to SQL query
+    query_params = [search_vec, initial_k * initial_k_buffer]
+
+    # There may be a variable number of keywords, so for each one, we add a condition, and add it to query_params - each keyword must appear anywhere in the text (case insensitive)
+    keyword_conditions = []
+    if keywords:
+        for keyword in keywords:
+            keyword_conditions.append("LOWER(e.window_text) LIKE ?")
+            query_params.append(f"%{keyword.lower()}%")
+
+        keyword_filter = " AND " + " AND ".join(keyword_conditions)
+    else:
+        keyword_filter = ""
+
+    # Find similar embeddings (keyword_filter is either empty or has AND conditions)
+    sql_query = f"""
     SELECT e.file_name, e.scene_id, e.window_start, e.window_end, e.window_id_in_scene, e.window_text, v.distance
     FROM window_vss v
     JOIN window e ON e.rowid = v.rowid
     WHERE vss_search(
         v.embedding,
         vss_search_params(?, ?)
-    )
+    ){keyword_filter}
     ORDER BY v.distance
-    """,
-        (
-            search_vec,
-            initial_k * initial_k_buffer,
-        ),  # We would just do initial K here, but we need a buffer because we'll deduplicate chunks within a scene
-    ).fetchall()
+    """
+    rows = cur.execute(
+        sql_query, query_params
+    ).fetchall()  # query params gives values to fill in the ?s
 
     con.close()
     results = []
