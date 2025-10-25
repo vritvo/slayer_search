@@ -80,13 +80,13 @@ def evaluate_semantic_search(notes=""):
 def meta_evaluator(notes=""):
     # Load config
     config = toml.load("config.toml")
-    initial_k = config["SEARCH"]["initial_k"]
+    final_k = config["SEARCH"]["final_k"]
 
     eval_path = config["EVALUATION"]["params"]["output_path"]
     eval_df = pd.read_csv(eval_path)
-    
+
     # Fill NaN values in notes column with empty string
-    eval_df['notes'] = eval_df['notes'].fillna('')
+    eval_df["notes"] = eval_df["notes"].fillna("")
     meta_columns = [
         "evaluation_id",
         "query",
@@ -99,32 +99,57 @@ def meta_evaluator(notes=""):
         "notes",
     ]
 
-    # 1) Find the rank for each query in each evaluation (including where the value isn't returned, assuming it's then at initial_k + 1)
-    just_query_and_run = eval_df[["evaluation_id", "query"]].drop_duplicates()
-    where_match = eval_df[eval_df["correct_match"]]
-    where_match = pd.merge(
-        just_query_and_run, where_match, how="left", on=["evaluation_id", "query"]
-    )[["evaluation_id", "query", "rank"]][["evaluation_id", "query", "rank"]].fillna(
-        initial_k + 1
-    )
+    # 2) Calculate metrics for each query/evaluation combination
+    query_metrics = []
 
-    # 2) Get whether or not the correct answer was returned at all.
-    query_and_run_table = (
-        eval_df.groupby(meta_columns)["correct_match"].sum().reset_index()
-    )
+    for _, group in eval_df.groupby(["evaluation_id", "query"]):
+        eval_id = group["evaluation_id"].iloc[0]
+        query = group["query"].iloc[0]
 
-    # 3) Merge:
-    final_results = pd.merge(
-        where_match, query_and_run_table, on=["evaluation_id", "query"]
-    )
-    # 4 Merge by evaluation_id:
+        # Check if correct answer is found in initial_k and final_k
+        has_match_initial = group["correct_match"].any()
+        has_match_final = group[group["rank"] <= final_k]["correct_match"].any()
+
+        # Get rank if match exists
+        rank_if_match = (
+            group[group["correct_match"]]["rank"].iloc[0] if has_match_initial else None
+        )
+
+        query_metrics.append(
+            {
+                "evaluation_id": eval_id,
+                "query": query,
+                "pct_correct_in_initial_k": 1 if has_match_initial else 0,
+                "pct_correct_in_final_k": 1 if has_match_final else 0,
+                "rank_if_in_initial_k": rank_if_match if has_match_initial else None,
+                "rank_if_in_final_k": rank_if_match if has_match_final else None,
+            }
+        )
+
+    query_metrics_df = pd.DataFrame(query_metrics)
+
+    # 3) Merge with metadata
+    meta_data = eval_df[meta_columns].drop_duplicates()
+    final_results = pd.merge(query_metrics_df, meta_data, on=["evaluation_id", "query"])
+
+    # 4) Aggregate by evaluation (excluding query)
     meta_columns.remove("query")
-    final_results = final_results.groupby(meta_columns)[
-        ["rank", "correct_match"]
-    ].mean()
+    aggregation_funcs = {
+        "pct_correct_in_initial_k": "mean",
+        "pct_correct_in_final_k": "mean",
+        "rank_if_in_initial_k": "mean",  # Only averages non-null values
+        "rank_if_in_final_k": "mean",  # Only averages non-null values
+    }
 
-    # Convert correct_match to percentage
-    final_results["correct_match"] = final_results["correct_match"] * 100
+    final_results = final_results.groupby(meta_columns).agg(aggregation_funcs)
+
+    # Convert percentages to actual percentages (0-100)
+    final_results["pct_correct_in_initial_k"] = (
+        final_results["pct_correct_in_initial_k"] * 100
+    )
+    final_results["pct_correct_in_final_k"] = (
+        final_results["pct_correct_in_final_k"] * 100
+    )
 
     final_results.to_csv("eval/meta_evaluation.csv")
 
