@@ -80,6 +80,7 @@ def evaluate_semantic_search(notes=""):
 def meta_evaluator(notes=""):
     # Load config
     config = toml.load("config.toml")
+    initial_k = config["SEARCH"]["initial_k"]
     final_k = config["SEARCH"]["final_k"]
 
     eval_path = config["EVALUATION"]["params"]["output_path"]
@@ -110,10 +111,13 @@ def meta_evaluator(notes=""):
         has_match_initial = group["correct_match"].any()
         has_match_final = group[group["rank"] <= final_k]["correct_match"].any()
 
-        # Get rank if match exists
-        rank_if_match = (
-            group[group["correct_match"]]["rank"].iloc[0] if has_match_initial else None
-        )
+        # Get rank if match exists, otherwise use initial_k + 1 for overall rank
+        if has_match_initial:
+            rank_if_match = group[group["correct_match"]]["rank"].iloc[0]
+            rank_overall = rank_if_match
+        else:
+            rank_if_match = None
+            rank_overall = initial_k + 1
 
         query_metrics.append(
             {
@@ -121,6 +125,7 @@ def meta_evaluator(notes=""):
                 "query": query,
                 "pct_correct_in_initial_k": 1 if has_match_initial else 0,
                 "pct_correct_in_final_k": 1 if has_match_final else 0,
+                "avg_rank_overall": rank_overall,  # Includes all queries, with initial_k + 1 for non-matches
                 "rank_if_in_initial_k": rank_if_match if has_match_initial else None,
                 "rank_if_in_final_k": rank_if_match if has_match_final else None,
             }
@@ -137,6 +142,7 @@ def meta_evaluator(notes=""):
     aggregation_funcs = {
         "pct_correct_in_initial_k": "mean",
         "pct_correct_in_final_k": "mean",
+        "avg_rank_overall": "mean",  # Includes all queries, with initial_k + 1 for non-matches
         "rank_if_in_initial_k": "mean",  # Only averages non-null values
         "rank_if_in_final_k": "mean",  # Only averages non-null values
     }
@@ -163,7 +169,14 @@ if __name__ == "__main__":
         default="",
         help="Optional notes about this specific evaluation run",
     )
+    parser.add_argument(
+        "--meta-only",
+        action="store_true",
+        default=False,
+        help="Only run meta evaluator, skip new evaluation",
+    )
     args = parser.parse_args()
 
-    evaluate_semantic_search(notes=args.notes)
+    if not args.meta_only:
+        evaluate_semantic_search(notes=args.notes)
     meta_evaluator(notes=args.notes)
