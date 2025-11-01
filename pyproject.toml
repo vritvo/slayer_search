@@ -18,4 +18,5 @@ dependencies = ["bs4",
                 "torch",
                 "jupyterlab",
                 "notebook",
-                "ipykernel"]
+                "ipykernel",
+                "einops"]

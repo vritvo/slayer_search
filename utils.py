@@ -171,12 +171,16 @@ def make_embeddings():
     # model = SentenceTransformer(model_name)
     model = _models["bi_encoder"]
 
+    if model_name.startswith("nomic"):
+        doc_formatting = "search_document: "
+    else:
+        doc_formatting = ""
+
     all_chunks = []
     all_ids = []
     for db_chunk_row in iter_chunk:
-        all_chunks.append(
-            f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
-        )
+        embedded_text = f"{doc_formatting}episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+        all_chunks.append(embedded_text)
         all_ids.append(db_chunk_row["window_id"])
 
     print(f"Creating embeddings for {len(all_chunks)} window chunks...")
@@ -235,7 +239,7 @@ def make_embeddings():
             )
             context_embeddings_multiple.append(context_embeddings)
 
-        context_embeddings = torch.sum(torch.stack(context_embeddings_multiple), dim=0)
+        context_embeddings = torch.mean(torch.stack(context_embeddings_multiple), dim=0)
 
         end_time = time.time()
         print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
@@ -246,19 +250,20 @@ def make_embeddings():
         # Update the cached embeddings in global storage
         _models["context_embeddings"] = context_embeddings
 
-        # Train model 2:
+        # ---- Stage 2: embed all documents conditioned on the cached context ----
         start_time = time.time()
-        print("Train Model 2")
+        print("Train Model 2 (document embeddings)")
         all_embeddings = model.encode(
-            all_chunks,  # your full corpus (same granularity you’ll retrieve)
-            prompt_name="document",  # IMPORTANT: document prompt
-            dataset_embeddings=context_embeddings,  # the context set from step 2
+            all_chunks,  # full corpus at retrieval granularity
+            prompt_name="document",
+            dataset_embeddings=context_embeddings,
             convert_to_tensor=False,
         )
         end_time = time.time()
         print(f"Computed all embeddings in {end_time - start_time:.2f} seconds.")
 
     else:
+        # Non-CDE path:
         start_time = time.time()
         all_embeddings = model.encode(all_chunks)
         end_time = time.time()
@@ -268,6 +273,7 @@ def make_embeddings():
     # Prepare embeddings data for batch insertion
     embeddings_data = []
     for chunk_id, embedding in zip(all_ids, all_embeddings):
+        # ensure plain list for sqlite-vss adapter
         embeddings_data.append((chunk_id, embedding.tolist()))
 
     # Actually insert the embeddings into the database
@@ -319,7 +325,10 @@ def initialize_models():
     # Load bi-encoder model
     print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
 
-    if model_name.startswith("jxm/cde"):
+    if model_name.startswith("nomic"):
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
+        _models["context_embeddings"] = None
+    elif model_name.startswith("jxm/cde"):
         _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
         # Try to load context embeddings if they exist, but don't fail if they don't
         try:
@@ -399,6 +408,10 @@ def semantic_search(search_query: str, initial_k=10):
 
     # Initialize context_embeddings for all model types
     context_embeddings = None
+
+    if model_name.startswith("nomic"):
+        search_query = "search_query: " + search_query
+
     if model_name.startswith("jxm/cde"):
         context_embeddings = _models.get("context_embeddings")
 
