@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify
-from utils import semantic_search, cross_encoder, initialize_models
+# from utils import semantic_search, cross_encoder, initialize_models
+from utils.models import initialize_models
+from utils.search import semantic_search, cross_encoder
 import traceback
 import toml
 

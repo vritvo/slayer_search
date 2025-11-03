@@ -4,13 +4,8 @@ This script is run once to build the database and embeddings.
 """
 
 from setup.data_processor import make_scene_chunks, insert_window_db
-from utils import (
-    make_embeddings,
-    init_scene_tables,
-    init_window_tables,
-    clear_table,
-    initialize_models,
-)
+from utils.database import init_scene_tables, init_window_tables, clear_table
+from utils.models import initialize_models, make_embeddings
 import time
 import gc
 
