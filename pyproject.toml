@@ -19,4 +19,5 @@ dependencies = ["bs4",
                 "jupyterlab",
                 "notebook",
                 "ipykernel",
-                "einops"]
+                "einops",
+                "langextract"]
