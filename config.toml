@@ -58,3 +58,60 @@ crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
 [EVALUATION.params]
 output_path = "eval/evaluation.csv"
+
+[[NER.location.examples]]
+text = """Cut to the Summers house. Cut inside. Joyce is writing out a few bills. She hears a knocking at the door, and looks up. She goes over to the door and answers it. She is surprised at who she sees standing there. """ 
+extraction_text = "Summers house" 
+location_descr = "Inside Buffy Summer's house"
+
+
+
+[[NER.location.examples]]
+text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~""" 
+extraction_text = "n/a" 
+location_descr = "n/a"
+
+[[NER.location.examples]]
+text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~
+    Sunnydale High School. Cut to the hall. Cordelia is demonstrating her fake laugh to another girl.
+    CORDELIA
+    (fake laughter) See? Dr. Debi says when a man is speaking you make serious eye contact, and you really, really listen, and you laugh at everything he says. (laughs again)
+    """
+extraction_text = "Sunnydale High School" 
+location_descr = "Sunnydale High School hall"
+
+[[NER.location.examples]]
+text = """Outside Angelus' mansion. The camera pans along its dark facade. Cut to the street. Buffy walks toward the mansion at a determined pace with the sword wrapped in a cloth. Suddenly Xander comes running out of the bushes on the hillside and jumps into the street in front of her. She startles and takes a reflexive step back.
+    """
+extraction_text = "Angelus' mansion" 
+location_descr = "street outside Angelus' mansion"
+
+[[NER.location.examples]]
+text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~
+    Sunnydale High School. Cut to the hall. Cordelia is demonstrating her fake laugh to another girl.
+    CORDELIA
+    (fake laughter) See? Dr. Debi says when a man is speaking you make serious eye contact, and you really, really listen, and you laugh at everything he says. (laughs again)
+    """
+extraction_text = "Sunnydale High School" 
+location_descr = "Sunnydale High School hall"
+
+[[NER.location.examples]]
+text = """Outside Angelus' mansion. The camera pans along its dark facade. Cut to the street. Buffy walks toward the mansion at a determined pace with the sword wrapped in a cloth. Suddenly Xander comes running out of the bushes on the hillside and jumps into the street in front of her. She startles and takes a reflexive step back.
+    """
+extraction_text = "Angelus' mansion" 
+location_descr = "street outside Angelus' mansion"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
