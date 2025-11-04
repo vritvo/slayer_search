@@ -84,7 +84,7 @@ location_descr = "Sunnydale High School hall"
 text = """Outside Angelus' mansion. The camera pans along its dark facade. Cut to the street. Buffy walks toward the mansion at a determined pace with the sword wrapped in a cloth. Suddenly Xander comes running out of the bushes on the hillside and jumps into the street in front of her. She startles and takes a reflexive step back.
     """
 extraction_text = "Angelus' mansion" 
-location_descr = "street outside Angelus' mansion"
+location_descr = "Street outside Angelus' mansion"
 
 [[NER.location.examples]]
 text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~
@@ -99,19 +99,22 @@ location_descr = "Sunnydale High School hall"
 text = """Outside Angelus' mansion. The camera pans along its dark facade. Cut to the street. Buffy walks toward the mansion at a determined pace with the sword wrapped in a cloth. Suddenly Xander comes running out of the bushes on the hillside and jumps into the street in front of her. She startles and takes a reflexive step back.
     """
 extraction_text = "Angelus' mansion" 
-location_descr = "street outside Angelus' mansion"
+location_descr = "Street outside Angelus' mansion"
 
+[[NER.location.examples]]
+text = """ ~~~~~~~~~~ Part 2 ~~~~~~~~~~
 
+ A wood in Rumania, 1898. Angelus runs through the trees, panting in his desperation to reach a gypsy camp. Cut to the camp. The camera pans across the dead body of the young Kalderash Gypsy girl that Angelus has recently killed. She is on a table dressed in white and lying on an intricately patterned quilt with candles burning around the perimeter. Members of the clan are laying rose petals on her. The camera continues to pan over to the Elder Woman sitting beneath a tent canopy and chanting over an Orb of Thesulah surrounded by candles within a sacred circle. Angelus continues running through the woods as she chants.
 
+ELDER WOMAN
+Nici mort, nici de-al fiintei, Te invoc, spirit al trecerii. Reda trupului ce separa omul de animal!
+"""
+extraction_text = "A wood in Rumania, 1898" 
+location_descr = "A flashback to a wood in Rumania, 1898"
 
-
-
-
-
-
-
-
-
-
-
-
+[[NER.location.examples]]
+text = """Cut to:
+23     INT.     BRONZE NIGHT CLUB - NIGHT
+Aimee Mann performs her song \"Pavlov's Bells\" on stage at The Bronze."""
+extraction_text = "INT.     BRONZE NIGHT CLUB - NIGHT"
+location_descr = "At night inside the Bronze Night Club"
