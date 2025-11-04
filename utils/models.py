@@ -185,8 +185,8 @@ def tag_text(input_text, generate_html=False):
 
     prompt = textwrap.dedent("""\
         Extract location.
-        Use exact text for extractions. Do not paraphrase or overlap entities. If the location is not certain, return n/a.
-        For the attribute location_descr, provide a short and concise description of the setting. If the town/city is stated and is not sunnydale in 1997 or later, that should be stated""")
+        Use exact text for extractions. Do not paraphrase or overlap entities. 
+        For the attribute location_descr, provide a short and concise description of the setting. If the town/city is stated and is not sunnydale in 1997 or later, that should be stated. Pre-1997 is a flashback.""")
 
     # 2. Provide a high-quality example to guide the model
 
