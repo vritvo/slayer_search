@@ -1,97 +1,124 @@
-import langextract as lx
-import textwrap
-import os
-import toml
-import json
-from dotenv import load_dotenv
-
-def tag_text(input_text, generate_html=False):
-    
-    # Make sure there is an input text, otherwise error: 
-    if not input_text:
-        raise ValueError("No input text provided")
-    
-    # Load environment variables from .env file
-    load_dotenv()
-    API_KEY = os.getenv("LANGEXTRACT_API_KEY")
-    config = toml.load("config.toml")
-
-    prompt = textwrap.dedent("""\
-        Extract location.
-        Use exact text for extractions. Do not paraphrase or overlap entities. If the location is not certain, return n/a.
-        For the attribute location_descr, provide a short and concise description of the setting. If the town/city is stated and is not sunnydale in 1997 or later, that should be stated""")
-
-    # 2. Provide a high-quality example to guide the model
-
-    examples = [
-        lx.data.ExampleData(
-            text=example["text"],
-            extractions=[
-                lx.data.Extraction(
-                    extraction_class="location",
-                    extraction_text=example["extraction_text"],
-                    attributes={
-                        "location_descr": example["location_descr"],
-                    },
-                ),
-            ],
-        )
-        for example in config["NER"]["location"]["examples"]
-    ]
-
-
-    print(os.getenv("LANGEXTRACT_API_KEY"))
-    result = lx.extract(
-        text_or_documents=input_text,
-        prompt_description=prompt,
-        examples=examples,
-        model_id="gemini-2.5-flash",
-        api_key=API_KEY,
-    )
-    # Save the results to a JSONL file
-    lx.io.save_annotated_documents( [result], output_name="extraction_results.jsonl", output_dir=".")
-    
-    
-    # # Append result to JSONL file manually
-    # with open("extraction_results.jsonl", "a") as f:
-    #     # Convert the AnnotatedDocument to a dict-like structure for JSON serialization
-    #     result_data = {
-    #         "text": result.text,
-    #         "extractions": [
-    #             {
-    #                 "extraction_class": ext.extraction_class,
-    #                 "extraction_text": ext.extraction_text,
-    #                 "char_interval": {
-    #                     "start_pos": ext.char_interval.start_pos,
-    #                     "end_pos": ext.char_interval.end_pos
-    #                 },
-    #                 "alignment_status": ext.alignment_status.value if hasattr(ext.alignment_status, 'value') else str(ext.alignment_status),
-    #                 "extraction_index": ext.extraction_index,
-    #                 "group_index": ext.group_index,
-    #                 "description": ext.description,
-    #                 "attributes": ext.attributes
-    #             }
-    #             for ext in result.extractions
-    #         ]
-    #     }
-    #     f.write(json.dumps(result_data) + "\n")
-    
-    print(result.extractions)
-
-    # Generate the visualization from the file
-    if generate_html:
-        html_content = lx.visualize("extraction_results.jsonl")
-        with open("visualization.html", "w") as f:
-            if hasattr(html_content, "data"):
-                f.write(html_content.data)
-            else:
-                f.write(html_content)
-        # return html_content
-
-    print(result.extractions)
-    return result.extractions
-
+from utils.models import tag_text
 
 if __name__ == "__main__":
-    input_text = """Cut to Hemery High School in Los Angeles, 1996. School is over for the day, and the students come streaming out. An old, rusted Chevy Impala with its windows spray-painted black pulls up on the far side of the street. The driver's window lowers, and Angel squints out into the daylight, careful to remain in shadow. He looks over at the building and sees Buffy come down the steps with three of her friends. """
-    tag_text(input_text = input_text)
+    input_text = """
+    Cut to the Summers house. Willow walks from the kitchen, holding a glass of water.
+
+BUFFY
+(OS) I've been having these flashes. Hallucinations, I guess.
+
+Willow comes into the living room where Buffy is sitting in the armchair. Willow gives Buffy the water.
+
+WILLOW
+Since when?
+
+BUFFY
+Uh ... night before last.
+
+Willow sits on the sofa, where Xander and Dawn are already sitting looking at Buffy.
+
+BUFFY
+I was, uh, checking houses on that list you gave me, and looking for Warren and his pals ... and then, bam! Some kind of gross, waxy demon-thing poked me.
+
+XANDER
+And when you say poke...
+
+BUFFY
+(rolling her eyes) In the arm. (Xander and Willow exchanging a look) It stung me or something, and ... then I was like ... no. It, it wasn't "like." I *was* in an institution. There were, um ... doctors and ... nurses and, and other patients. They, they told me that I was sick. I guess crazy. And that, um, Sunnydale and, and all of this, it ... none of it ... was real.
+
+XANDER
+Oh, come on, that's ridiculous! What? You think this isn't real just because of all the vampires and demons and ex-vengeance demons and the sister that used to be a big ball of universe-destroying energy? (pauses, frowns)
+
+BUFFY
+I know how this must sound, but ... it felt so real. (softly) Mom was there.
+
+DAWN
+She was?
+
+BUFFY
+Dad, too. They were together ... (distantly) like they used to be ... before Sunnydale.
+
+WILLOW
+(stands up hastily, raises her hand) Okay! All in favor of research? (Xander raises his hand) Motion passed. All right, Xander, you hit the demon bars. Dig up any info on a new player in town.
+
+Close on Buffy squinching up her face as if in pain.
+
+WILLOW
+(OS) Dawnie, you can help me research. We'll hop on-line, check all the-
+
+Flash back to the asylum. CrazyBuffy is sitting in the chair with her face squinched up in the same way.
+
+DOCTOR
+(OS) -possibilities for a full recovery, (shot of the doctor sitting behind a desk) but we have to proceed cautiously. If we're not careful--
+
+JOYCE
+Wait.
+
+Reveal Joyce and Hank sitting in chairs across from the doctor. CrazyBuffy sits in another chair a little bit separated from them, with her knees drawn up again.
+
+JOYCE
+Are you saying that Buffy could be like she was before any of this happened?
+
+DOCTOR
+(gets up, comes around the desk) Mrs. Summers, you have to understand the severity of what's happened to your daughter. (sits on the edge of his desk) For the last six years, she's been in an undifferentiated type of schizophrenia.
+
+HANK
+We know what her condition is. (Buffy frowning) That's not what we're asking.
+
+DOCTOR
+Buffy's delusions are multi-layered. (Joyce and Hank listening intently) She believes she's some type of hero.
+
+JOYCE
+The Slayer.
+
+DOCTOR
+The Slayer, right, but that's only one level. She's also created an intricate latticework to support her primary delusion. In her mind, she's the central figure in a fantastic world beyond imagination. (Buffy staring into the distance, frowning) She's surrounded herself with friends, most with their own superpowers ... who are as real to her as you or me. More so, unfortunately. Together they face ... grand overblown conflicts against an assortment of monsters both imaginary and rooted in actual myth. Every time we think we're getting through to her, more fanciful enemies magically appear-
+
+BUFFY
+(suddenly realizing) How did I miss-
+
+DOCTOR
+and she's-
+
+BUFFY
+Warren and Jonathan, they did this to me!
+
+Buffy becomes agitated, tries to get up out of her chair. The doctor reaches over to stop her.
+
+DOCTOR
+Buffy, it's all right. They can't hurt you here. You're with your family.
+
+Buffy looks around, upset.
+
+BUFFY
+(tearful) Dawn?
+
+HANK
+(to doctor) That's the sister, right?
+
+DOCTOR
+A magical key. Buffy inserted Dawn into her delusion, actually rewriting the entire history of it to accommodate a need for a familial bond. (to Buffy) Buffy, but that created inconsistencies, didn't it? (Buffy staring at him) Your sister, your friends, all of those people you created in Sunnydale, they aren't as comforting as they once were. Are they? They're coming apart.
+
+Buffy whimpers, lowers her head again.
+
+JOYCE
+Buffy, listen to what the doctor's saying, it's important.
+
+DOCTOR
+Buffy, you used to create these grand villains to battle against, and now what is it? Just ordinary students you went to high school with. (Buffy staring at him) No gods or monsters ... just three pathetic little men ... who like playing with toys.
+
+Buffy frowns anxiously.
+    
+    """
+    result = tag_text(input_text=input_text, generate_html=True)
+
+    # print the location_descr and extraction_text for each extraction
+    for extraction in result:
+        location_descr = (
+            extraction.attributes.get("location_descr", "N/A")
+            if extraction.attributes
+            else "N/A"
+        )
+        print("Location Description: ", location_descr)
+        print("Extraction Text: ", extraction.extraction_text)
+        print("--------------------------------")

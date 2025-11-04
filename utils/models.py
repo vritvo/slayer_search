@@ -6,8 +6,13 @@ import time
 from sentence_transformers import SentenceTransformer, CrossEncoder  # sbert
 from utils.database import clear_table
 from utils.data_access import iter_windows, batch_insert_into_vss_table
+import langextract as lx
+import textwrap
+import os
+from dotenv import load_dotenv
 
 _models = {}
+
 
 def initialize_models():
     """Load all models at startup and store them globally."""
@@ -43,6 +48,7 @@ def initialize_models():
     )
 
     print("Models loaded successfully")
+
 
 def make_embeddings():
     """Create embeddings for window chunks and insert into DB."""
@@ -165,3 +171,64 @@ def make_embeddings():
     # Actually insert the embeddings into the database
     print(f"Batch inserting {len(embeddings_data)} window embeddings...")
     batch_insert_into_vss_table(embeddings_data)
+
+
+def tag_text(input_text, generate_html=False):
+    # Make sure there is an input text, otherwise error:
+    if not input_text:
+        raise ValueError("No input text provided")
+
+    # Load environment variables from .env file
+    load_dotenv()
+    API_KEY = os.getenv("LANGEXTRACT_API_KEY")
+    config = toml.load("config.toml")
+
+    prompt = textwrap.dedent("""\
+        Extract location.
+        Use exact text for extractions. Do not paraphrase or overlap entities. If the location is not certain, return n/a.
+        For the attribute location_descr, provide a short and concise description of the setting. If the town/city is stated and is not sunnydale in 1997 or later, that should be stated""")
+
+    # 2. Provide a high-quality example to guide the model
+
+    examples = [
+        lx.data.ExampleData(
+            text=example["text"],
+            extractions=[
+                lx.data.Extraction(
+                    extraction_class="location",
+                    extraction_text=example["extraction_text"],
+                    attributes={
+                        "location_descr": example["location_descr"],
+                    },
+                ),
+            ],
+        )
+        for example in config["NER"]["location"]["examples"]
+    ]
+
+    result = lx.extract(
+        text_or_documents=input_text,
+        prompt_description=prompt,
+        examples=examples,
+        model_id="gemini-2.5-flash",
+        api_key=API_KEY,
+    )
+    # Save the results to a JSONL file
+    lx.io.save_annotated_documents(
+        [result], output_name="extraction_results.jsonl", output_dir="."
+    )
+
+    print(result.extractions)
+
+    # Generate the visualization from the file
+    if generate_html:
+        html_content = lx.visualize("extraction_results.jsonl")
+        with open("visualization.html", "w") as f:
+            if hasattr(html_content, "data"):
+                f.write(html_content.data)
+            else:
+                f.write(html_content)
+        # return html_content
+
+    print(result.extractions)
+    return result.extractions

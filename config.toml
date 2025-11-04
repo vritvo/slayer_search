@@ -67,11 +67,6 @@ location_descr = "Inside Buffy Summer's house"
 
 
 [[NER.location.examples]]
-text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~""" 
-extraction_text = "n/a" 
-location_descr = "n/a"
-
-[[NER.location.examples]]
 text = """~~~~~~~~~~ Part 1 ~~~~~~~~~~
     Sunnydale High School. Cut to the hall. Cordelia is demonstrating her fake laugh to another girl.
     CORDELIA
@@ -118,3 +113,63 @@ text = """Cut to:
 Aimee Mann performs her song \"Pavlov's Bells\" on stage at The Bronze."""
 extraction_text = "INT.     BRONZE NIGHT CLUB - NIGHT"
 location_descr = "At night inside the Bronze Night Club"
+
+[[NER.location.examples]]
+text = """
+Cut to Joyce driving home in her Jeep. Cut to a view of her from the lawn nearing the house. As she turns into the driveway the camera pulls back, and Angelus' legs come into view. Joyce sees him as she pulls to a stop and turns off the engine. He approaches her open car window. 
+
+ANGELUS
+Mrs. Summers, I need to talk to you.
+
+JOYCE
+(gets out with a bag of groceries) You're Angel.
+
+ANGELUS
+(pushes the door closed) Did Buffy tell you about us?
+
+JOYCE
+She told me she wants you to leave her alone.
+
+ANGELUS
+I-I can't. I can't do that.
+
+JOYCE
+You're scaring her.
+
+ANGELUS
+You have to help me. (she starts toward the house) Joyce... (follows her) I need, I need to be with her. Y-you can convince her. You have to convince her.
+
+"""
+extraction_text = "the lawn nearing the house"
+location_descr = "In front of the house"
+
+[[NER.location.examples]]
+text = """
+Cut to the school. The camera pans from the street to the main building. Cut to Joyce pulling up to the school in her Jeep to drop off Buffy.
+
+JOYCE
+Okay!
+
+Buffy gets out."""
+extraction_text = "the school"
+location_descr = "near the car, by school"
+
+[[NER.location.examples]]
+text = """
+Cut outside. Buffy comes out of the hall and looks around for Cordelia.
+
+She sees her and starts to follow. Cut to Mr. Pole, the Driver's Ed.
+
+Teacher. He's waiting impatiently for Cordelia. He turns and sees her coming.
+
+Mr. Pole: Nice of you to join us, Cordelia. We didn't keep you waiting or anything, did we? It's your turn to drive. Okay, people, let's buckle up.
+
+CORDELIA
+(goes around the front of the car) I don't wanna drive today, Mr. Pole.
+
+Mr. Pole: You've flunked Driver's Ed. twice already. Show me some moves, or you'll be taking the bus to college.
+
+He gets in the car. Cordelia gets in last. Buffy watches from behind a school bus."""
+extraction_text = "in the car"
+location_descr = "Inside the Driver's Ed car"
+
