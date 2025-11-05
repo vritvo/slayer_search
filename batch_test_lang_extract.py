@@ -1,3 +1,4 @@
+import hashlib
 from utils.data_access import iter_scenes
 import json
 from utils.models import tag_text
@@ -20,6 +21,12 @@ for scene_row in iter_scenes():
     if scene_row["file_name"] in episode_list:
         print(scene_row["file_name"])
         print(scene_row["text"])
+
+        # Make hash
+        scene_bytes = scene_row["text"].encode("utf-8")
+        hash_object = hashlib.sha256(scene_bytes)
+        hash_hex = hash_object.hexdigest()
+        scene_row["hash"] = hash_hex
         # create location tagging for each scene
         result = tag_text(scene_row["text"], generate_html=False)
 
@@ -34,12 +41,14 @@ for scene_row in iter_scenes():
             if extraction.attributes and "location_descr" in extraction.attributes:
                 location_descr_list.append(extraction.attributes["location_descr"])
 
-        scene_row["location_descr"] = "| ".join(location_descr_list)
-        scene_row["location_text"] = "| ".join(extraction_list)
+        scene_row["location_descr"] = " | ".join(location_descr_list)
+        scene_row["location_text"] = " | ".join(extraction_list)
 
         # Collect the result
         results.append(
             {
+                "scene_id": scene_row["scene_id"],
+                "scene_hash": scene_row["hash"],
                 "file_name": scene_row["file_name"],
                 "text": scene_row["text"],
                 "location_descr": scene_row["location_descr"],
