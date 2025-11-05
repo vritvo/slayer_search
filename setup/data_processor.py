@@ -33,6 +33,7 @@ def make_scene_chunks():
             # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut" is encountered.
             curr_chunk = []  # current scene chunk
             chunk_index = 0
+            episode_name = file_name.replace(".txt", "")
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
@@ -54,8 +55,6 @@ def make_scene_chunks():
                             print(f"  Splitting chunk {chunk_index}")
 
                             # Insert into main table
-                            episode_name = file_name.replace(".txt", "")
-
                             cur.execute(
                                 f"""
                                 INSERT INTO {table_name}
@@ -91,7 +90,7 @@ def make_scene_chunks():
                         VALUES (?, ?, ?)
                     """,
                         (
-                            file_name,
+                            episode_name,
                             chunk_index,
                             chunk_text,
                         ),
