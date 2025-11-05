@@ -13,38 +13,44 @@ episode_list = [
     "7x02 Beneath You",
 ]
 
+# Collect all results in a list
+results = []
+
 for scene_row in iter_scenes():
     if scene_row["file_name"] in episode_list:
         print(scene_row["file_name"])
         print(scene_row["text"])
-        result = tag_text(scene_row["text"])
+        # create location tagging for each scene
+        result = tag_text(scene_row["text"], generate_html=False)
 
         extraction_list = []
         location_descr_list = []
+
+        # Each scene has multiple location extractions, so we need to join them together
         for extraction in result:
             extraction_list.append(extraction.extraction_text)
 
-            print("----")
             print(extraction.attributes)
-            if extraction.attributes and 'location_descr' in extraction.attributes:
-                location_descr_list.append(extraction.attributes['location_descr'])
+            if extraction.attributes and "location_descr" in extraction.attributes:
+                location_descr_list.append(extraction.attributes["location_descr"])
 
-        scene_row["location_descr"] = ", ".join(location_descr_list)
-        scene_row["location_text"] = ", ".join(extraction_list)
+        scene_row["location_descr"] = "| ".join(location_descr_list)
+        scene_row["location_text"] = "| ".join(extraction_list)
 
-        # append to a json something with file_name, text, location_descr, and extraction_text:
-        with open("lang_extract_results.json", "a") as f:
-            f.write(
-                json.dumps(
-                    {
-                        "file_name": scene_row["file_name"],
-                        "text": scene_row["text"],
-                        "location_descr": scene_row["location_descr"],
-                        "extraction_text": scene_row["location_text"],
-                    }
-                )
-                + "\n"
-            )
-        if chunk_num == 5:
+        # Collect the result
+        results.append(
+            {
+                "file_name": scene_row["file_name"],
+                "text": scene_row["text"],
+                "location_descr": scene_row["location_descr"],
+                "extraction_text": scene_row["location_text"],
+            }
+        )
+
+        if chunk_num == 3:
             break
         chunk_num += 1
+
+# Write all results as a properly formatted JSON array
+with open("lang_extract_results.json", "w") as f:
+    json.dump(results, f, indent=2)
