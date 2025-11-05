@@ -3,6 +3,7 @@ import os
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
 
+
 def make_scene_chunks():
     """Process script chunks and insert them row-by-row into the database."""
 
@@ -47,6 +48,7 @@ def make_scene_chunks():
                     | line.strip().lower().startswith("act ")
                     | line.strip().lower().startswith("episode opens")
                     | line.strip().lower().startswith("open on")
+                    | line.strip().lower().startswith("-------")
                 ):
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
