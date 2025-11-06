@@ -12,6 +12,8 @@ def make_scene_chunks():
 
     table_name = "scene"
 
+    config = toml.load("config.toml")
+    scene_split_markers = config["WINDOW"]["scene_split_markers"]
     try:
         # Process all files in the scripts directory
         for file_name in os.listdir("scripts"):
@@ -38,18 +40,8 @@ def make_scene_chunks():
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
-                if (
-                    line.strip().lower().startswith("cut ")
-                    | line.strip().lower().startswith("(cut ")
-                    | line.strip().lower().startswith("dissolve to")
-                    | line.strip().lower().startswith("~~~~~~~")
-                    | line.strip().lower().startswith("==")
-                    | line.strip().lower().startswith("***")
-                    | line.strip().lower().startswith("act ")
-                    | line.strip().lower().startswith("episode opens")
-                    | line.strip().lower().startswith("open on")
-                    | line.strip().lower().startswith("-------")
-                ):
+                line_lower = line.strip().lower()
+                if any(line_lower.startswith(marker) for marker in scene_split_markers):
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
                         chunk_text = "\n".join(curr_chunk).strip()
