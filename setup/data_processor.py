@@ -2,7 +2,8 @@ import toml
 import os
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
-
+import anthropic
+from dotenv import load_dotenv
 
 def make_scene_chunks():
     """Process script chunks and insert them row-by-row into the database."""
@@ -218,3 +219,37 @@ def insert_window_db():
         con.rollback()  # Rollback on error
     finally:
         con.close()
+
+def llm_scene_split(episode_name):
+    load_dotenv()
+
+    API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    config = toml.load("config.toml")
+
+    scene_split_markers_with_text_in_list = [
+        f"- Line starts with '{x}'" for x in config["WINDOW"]["scene_split_markers"]
+    ]
+    scene_split_markers_in_text = "\n".join(scene_split_markers_with_text_in_list)
+
+    ""
+    with open(f"scripts/{episode_name}.txt", "r") as file:
+        script_content = file.read()
+        
+    prompts = toml.load("prompts.toml")
+    system_prompt = prompts.get("SCENE_SPLIT").get("system").format(scene_split_markers_in_text=scene_split_markers_in_text)
+    user_prompt = prompts.get("SCENE_SPLIT").get("user").format(episode_name=episode_name, script_content=script_content)
+
+    client = anthropic.Anthropic(api_key=API_KEY)
+    message = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=2000,
+        system=system_prompt,
+        messages=[
+            {
+                "role": "user",
+                "content": user_prompt,
+            }
+        ],
+    )
+
+    return message.content[0].text
