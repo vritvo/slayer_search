@@ -2,113 +2,393 @@ from utils.models import tag_text
 
 if __name__ == "__main__":
     input_text = """
-    Cut to the Summers house. Willow walks from the kitchen, holding a glass of water.
+    (Cut to a playground, daylight. Giles and Spike are swinging on swings, both dressed in Giles-type tweeds. Buffy playing in the sandbox.)
 
-BUFFY
-(OS) I've been having these flashes. Hallucinations, I guess.
-
-Willow comes into the living room where Buffy is sitting in the armchair. Willow gives Buffy the water.
-
-WILLOW
-Since when?
-
-BUFFY
-Uh ... night before last.
-
-Willow sits on the sofa, where Xander and Dawn are already sitting looking at Buffy.
-
-BUFFY
-I was, uh, checking houses on that list you gave me, and looking for Warren and his pals ... and then, bam! Some kind of gross, waxy demon-thing poked me.
+(Xander walks up.)
 
 XANDER
-And when you say poke...
+Hey, there you are.
 
 BUFFY
-(rolling her eyes) In the arm. (Xander and Willow exchanging a look) It stung me or something, and ... then I was like ... no. It, it wasn't "like." I *was* in an institution. There were, um ... doctors and ... nurses and, and other patients. They, they told me that I was sick. I guess crazy. And that, um, Sunnydale and, and all of this, it ... none of it ... was real.
+(putting sand in pail with plastic shovel) Are you sure it's us you were looking for?
+
+(Giles smiles at her.)
+
+SPIKE
+Giles here is gonna teach me to be a Watcher. Says I got the stuff.
+
+GILES
+Spike's like a son to me. (They both smile and continue swinging)
 
 XANDER
-Oh, come on, that's ridiculous! What? You think this isn't real just because of all the vampires and demons and ex-vengeance demons and the sister that used to be a big ball of universe-destroying energy? (pauses, frowns)
+That's good. I was into that for a while, but... (nods toward the street) I got other stuff goin' on.
+
+(Long shot of the ice-cream truck surrounded by kids.)
+
+(Closer shot of Xander in the truck, wearing his striped shirt and hat, serving ice cream to kids.)
+
+XANDER
+(in playground) You gotta have something. (Looks at Buffy) Gotta be with movin' forward.
 
 BUFFY
-I know how this must sound, but ... it felt so real. (softly) Mom was there.
+(like a proud little kid) Like a shark.
 
-DAWN
-She was?
+XANDER
+Like a shark with feet and ... much less fins.
+
+SPIKE
+(like a proud little kid) And on land!
+
+GILES
+Very good!
+
+(They keep swinging.)
+
+XANDER
+Buffy, are you sure you wanna play there?
+
+(Buffy gives him a pouty look like a little kid told not to do something.)
+
+XANDER
+It's a pretty big sandbox.
 
 BUFFY
-Dad, too. They were together ... (distantly) like they used to be ... before Sunnydale.
+I'm okay. (Suddenly we see her against the backdrop of the desert from Willow's dream. Rocks, sand, scraggly trees) It's not coming for me yet.
+
+XANDER
+I just mean ... you can't protect yourself from ... some stuff.
+
+(Buffy looks directly at him. The playground backdrop is back.)
+
+BUFFY
+I'm way ahead of you, big brother.
+
+XANDER
+Brother?
+
+(Buffy looks at him expressionless. Soft music: a woman vocalizing without words.)
+
+(Spike and Giles swinging higher and higher.)
+
+GILES
+Go on, put your back into it! A Watcher scoffs at gravity. (They continue swinging. Woman continues humming.)
+
+(Shot of Buffy still expressionless.)
+
+(Shot of Xander squinting at her.)
+
+(Shot of the other Xander in the truck, watching them.)
+
+(Shot of the four of them from the truck-Xander's perspective.)
+
+(Truck-Xander pulls back from the window, goes to the wheel, although the truck is already in motion: tree-lined streets going by. Anya is sitting in the passenger seat doing something with her hands.)
+
+(Xander sits in the driver's seat. Anya looks at him.)
+
+ANYA
+Do you know where you're going?
+
+(Xander looks at her, surprised.)
+
+ANYA
+I've been thinking about getting back into vengeance.
+
+(We see her playing with a lollipop in its wrapper.)
+
+(Xander takes his striped hat off, puts it on the dashboard.)
+
+XANDER
+Is that right?
+
+ANYA
+Well, you know how I miss it. I'm so at loose ends since I quit. I
+
+think this is going to be a very big year for vengeance.
+
+XANDER
+But ... isn't vengeance kind of ... vengeful?
+
+ANYA
+(petulant) You don't want me to have a hobby.
+
+XANDER
+Not a vengeance hobby, no! It's dangerous. People can't do anything they want. Society has rules, and borders, and an end zone. It doesn't matter if-
+
+(He hears giggling, turns.)
+
+(We see Willow and Tara in the back of the truck, snuggling and nuzzling.
+
+Both wearing exaggerated eye makeup.)
+
+XANDER
+Do you mind? I'm talking to my demon.
+
+(Shot of Willow in a very short black bustier, Tara in a short black skirt and very revealing white blouse. Tara has one leg bent and Willow's hand is on her thigh. Both have heavy black eye makeup and thick red lipstick.)
 
 WILLOW
-(stands up hastily, raises her hand) Okay! All in favor of research? (Xander raises his hand) Motion passed. All right, Xander, you hit the demon bars. Dig up any info on a new player in town.
+Sorry.
 
-Close on Buffy squinching up her face as if in pain.
+(Xander stares at them. Both girls smile seductively at him. We hear Tara's voice although her lips don't move.)
+
+TARA
+We just think you're really interesting.
+
+XANDER
+Oh, I-I'm going places.
 
 WILLOW
-(OS) Dawnie, you can help me research. We'll hop on-line, check all the-
+I'm way ahead of you. (Caressing Tara's leg.)
 
-Flash back to the asylum. CrazyBuffy is sitting in the chair with her face squinched up in the same way.
+(Closeup of Willow and Tara grinning at each other, nuzzling. Willow whispers in Tara's ear. They both giggle.)
 
-DOCTOR
-(OS) -possibilities for a full recovery, (shot of the doctor sitting behind a desk) but we have to proceed cautiously. If we're not careful--
+(Pan down to Willow's hand stroking Tara's thigh.)
 
-JOYCE
-Wait.
+XANDER
+(riveted) Is that right?
 
-Reveal Joyce and Hank sitting in chairs across from the doctor. CrazyBuffy sits in another chair a little bit separated from them, with her knees drawn up again.
+(They look at him.)
 
-JOYCE
-Are you saying that Buffy could be like she was before any of this happened?
+WILLOW
+Watch this.
 
-DOCTOR
-(gets up, comes around the desk) Mrs. Summers, you have to understand the severity of what's happened to your daughter. (sits on the edge of his desk) For the last six years, she's been in an undifferentiated type of schizophrenia.
+(Willow puts her hand on Tara's waist. Tara puts her hand on Willow's shoulder. They lean toward each other.)
 
-HANK
-We know what her condition is. (Buffy frowning) That's not what we're asking.
+(Shot of Xander's wide-eyed face. We hear kissing noises and soft moans.
 
-DOCTOR
-Buffy's delusions are multi-layered. (Joyce and Hank listening intently) She believes she's some type of hero.
+Extended shot of Xander staring.)
 
-JOYCE
-The Slayer.
+TARA
+Do you wanna come in the back with us?
 
-DOCTOR
-The Slayer, right, but that's only one level. She's also created an intricate latticework to support her primary delusion. In her mind, she's the central figure in a fantastic world beyond imagination. (Buffy staring into the distance, frowning) She's surrounded herself with friends, most with their own superpowers ... who are as real to her as you or me. More so, unfortunately. Together they face ... grand overblown conflicts against an assortment of monsters both imaginary and rooted in actual myth. Every time we think we're getting through to her, more fanciful enemies magically appear-
+(Xander stares open-mouthed.)
+
+ANYA
+Oh, go on.
+
+(Xander stares at her. Sexy music starts.)
+
+XANDER
+I don't have to.
+
+ANYA
+I'll be fine. I think I've figured out how to steer by gesturing emphatically.
+
+(Xander looks at the road, looks at Anya, looks back. Gets up.)
+
+(Shot of Anya gesturing emphatically at the road.)
+
+(Xander walks past the ice-cream-selling window in the side of the truck.
+
+Outside, we see more tree-lined streets rushing by. The girls are gone.)
+
+(Xander walks to the back of the truck, climbs up onto a loft-like thing, past a big pile of newspapers and other random debris. He shoves a cooler out of the way, falls down onto the floor in his basement. Looks around, exasperated.)
+
+XANDER
+Girls?
+
+(The upstairs doorknob begins rattling again. Xander walks forward nervously. Suddenly there's pounding on the door too. He looks up, scared.)
+
+XANDER
+(yells) I know what's up there!
+
+(Pounding continues. He backs away, turns, sees the bald man holding up a plate of cheese slices.)
+
+BALD MAN
+These ... will not protect you.
+
+(More pounding, growling. Xander goes past the bald man and out the back door.)
+
+(Xander is in the Sunnydale High hallways, but the colors are all weird.
+
+Everything's purple and green. Weird noises like microphone feedback.
+
+Xander pushes his way past students talking in the halls. Looking over his shoulder, he can maybe see something through the other students' legs, chasing him.)
+
+XANDER
+Giles.
+
+(Giles is leaning against a wall, dressed casually, holding an apple.)
+
+GILES
+Xander, what are you doing here?
+
+XANDER
+What's after me?
+
+GILES
+It's because of what we did, I know that. (Takes a bite of the apple)
+
+XANDER
+(shakes his head in confusion) What we did?
+
+GILES
+Hm. Now, the others have gone on ahead. (Points down the hall.) Now, listen very carefully. Your life may depend on what I'm about to tell you.
+
+You need-
+
+(Giles' voice changes to a man speaking French. Sounds like the voice on a tape in a beginning language class. Giles continues talking and gesturing, but what we hear is the French.)
+
+GILES
+(French)
+
+XANDER
+What? Go where? I don't understand.
+
+GILES
+(?) Ce n'est pas le temps pour des jeux. [This is not the time for games.]
+
+(Anya approaches.)
+
+ANYA
+Xander. (Fake French woman's voice) Il faut que tu viens avec nous maintenant. On t'attends. [You have to come with us now. They're waiting for you.]
+
+GILES
+C'est que j'ai vous dire. [That's what I said.]
+
+XANDER
+Honey, I don't... I can't hear you.
+
+(Anya takes his hand.)
+
+ANYA
+C'est pas importante. Je t'escorte. [It's not important. I'll take you.]
+
+GILES
+Allons-y la. [Let's go.]
+
+(Giles also takes Xander's hand, trying to pull him down the hall. A random guy goes by on a skateboard, pushes Xander down the hall)
+
+XANDER
+W-wait! Where we going? Where? (Looks over his shoulder as they pull/push him down the hall. Struggles.) Hey! (People in the crowd pick him up. In the crowd we can still see Giles with the apple in his mouth.) Let go! Hey! (The final "Hey" echoes.)
+
+(Fade to Xander in green army fatigues, hands cuffed behind his back, moving through a forest. Asian-type music. Another guy in fatigues, holding a gun, is guarding him. An image of Xander's face is overlaid over the left half of the screen.)
+
+(Fade to a dark room lit with red lights. Soldiers bring Xander in and he kneels. There's a cot at the right with a person on it.)
+
+MALE VOICE
+Where are you from, Harris?
+
+XANDER
+Well, the basement, mostly.
+
+MALE VOICE
+Were you born there?
+
+(Camera moving toward the person on the cot.)
+
+(Shot of Xander looking toward the cot, a soldier guarding him in the background. Xander nods.)
+
+XANDER
+Possibly.
+
+VOICE
+I walked by your guidance counselor's office one time.
+
+(The person sits up partway and we see it's Principal Snyder, with a towel around his neck.)
+
+SNYDER
+A bunch of you were sitting there ... waiting to be shepherded.
+
+(Xander looks confused, alarmed.)
+
+SNYDER
+I remember it smelled like dead flowers. Like decay. Then it hit me. The hope of our nation's future is a bunch of mulch.
+
+XANDER
+You know, I never got the chance to tell you how glad I was you were eaten by a snake. (Suddenly gets an "I shouldn't have said that" look on his face)
+
+(Snyder sits up slowly. His face is all sweaty.)
+
+SNYDER
+Where are you heading?
+
+XANDER
+(shrugs uncertainly) Well, I'm supposed to meet Tara and Willow.
+
+(Shot of hands lifting a wooden bowl.)
+
+XANDER
+And possibly Buffy's mom.
+
+(Snyder's hands lifting water from the bowl and pouring it over his bald head.)
+
+SNYDER
+Your time is running out.
+
+XANDER
+No, I'm just trying to get away. There's ... something I can't fight.
+
+SNYDER
+Are you a soldier?
+
+XANDER
+(shakes head) I'm a comfortador.
+
+(Snyder leans forward so his face is illuminated.)
+
+SNYDER
+(contemptuous) You're neither. You're a whipping boy. Raised by mongrels and set on a sacrificial stone.
+
+XANDER
+(nods) I'm getting a cramp.
+
+(He stands, looks around. He's somewhere else. Around a corner we see the same dark-haired person/creature that previously attacked Willow. It's crawling or crouching behind a trellis. It growls. Xander backs away. We see he's in the courtyard outside Giles' apartment. He runs to Giles' door, opens it, enters.)
+
+XANDER
+Giles, it's here!
+
+GILES
+It's more serious than we thought.
+
+(We see Giles and Buffy and Anya looking at Willow, who's in a chair still gasping and choking. They all ignore Xander. We hear what sounds like helicopter noises.)
+
+XANDER
+Giles!
 
 BUFFY
-(suddenly realizing) How did I miss-
+I can fight anything. Right?
 
-DOCTOR
-and she's-
+ANYA
+Maybe we should slap her.
 
-BUFFY
-Warren and Jonathan, they did this to me!
+(Xander runs past them, down the hall that should lead to Giles' kitchen, but instead he comes out in Buffy's dorm. Students walking around, chattering. Harsh, jangly rock music with the helicopter noise as the percussion. Xander goes through the hallways and into Buffy and Willow's room.)
 
-Buffy becomes agitated, tries to get up out of her chair. The doctor reaches over to stop her.
+XANDER
+Buffy?
 
-DOCTOR
-Buffy, it's all right. They can't hurt you here. You're with your family.
+(Hears growling behind him. He yanks open the closet door and goes in.
 
-Buffy looks around, upset.
+Fights his way past the clothes and is in a dark room, horizontal-striped light like it's coming through Venetian blinds. He runs through dark brick-lined hall, comes out in his basement again. Stops, looks around. The music slowly fades out. There's still pounding on the upstairs door and the knob rattling. He goes toward it, up a couple of stairs, shaking his head.)
 
-BUFFY
-(tearful) Dawn?
+XANDER
+(whispers) That's not the way out. (The door bursts open. Xander looks down at himself, then back up the stairs.)
 
-HANK
-(to doctor) That's the sister, right?
+VOICE
+What the hell is wrong with you?
 
-DOCTOR
-A magical key. Buffy inserted Dawn into her delusion, actually rewriting the entire history of it to accommodate a need for a familial bond. (to Buffy) Buffy, but that created inconsistencies, didn't it? (Buffy staring at him) Your sister, your friends, all of those people you created in Sunnydale, they aren't as comforting as they once were. Are they? They're coming apart.
+(Xander looks chastised.)
 
-Buffy whimpers, lowers her head again.
+(We see a man silhouetted in the doorway above. It's Xander's dad.)
 
-JOYCE
-Buffy, listen to what the doctor's saying, it's important.
+DAD
+You won't come upstairs? What are you ... ashamed of us? Your mother's crying her guts out!
 
-DOCTOR
-Buffy, you used to create these grand villains to battle against, and now what is it? Just ordinary students you went to high school with. (Buffy staring at him) No gods or monsters ... just three pathetic little men ... who like playing with toys.
+XANDER
+You don't understand.
 
-Buffy frowns anxiously.
-    
+DAD
+No. You don't understand. (Starts down the stairs, stomping angrily)
+
+The line ends here with us, and you're not gonna change that.
+
+(Xander looking down, unable to look at his dad.)
+
+DAD
+You haven't got the heart.
+
+(Suddenly Dad shoves his hand into Xander's chest. Xander looks down. The hand is covered with rags. He looks up, scared. We get a brief glimpse of a pair of feral eyes surrounded by dark stringy hair. Grey skin. The person growls.)
+
+(The hand pulls Xander's heart out of his chest.)
     """
     result = tag_text(input_text=input_text, generate_html=True)
 

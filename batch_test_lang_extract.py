@@ -10,8 +10,9 @@ episode_list = [
     # "2x22 Becoming, Part 2",
     # "3x01 Anne",
     # "4x05 Beer Bad",
-    "5x07 Fool For Love",
+    # "5x07 Fool For Love",
     "7x02 Beneath You",
+    "4x22 Restless",
 ]
 
 # Collect all results in a list
@@ -56,7 +57,7 @@ for scene_row in iter_scenes():
             }
         )
 
-        if chunk_num == 3:
+        if chunk_num == 50:
             break
         chunk_num += 1
 
