@@ -2,9 +2,10 @@
 SCRIPT_FOLDER = "scripts/"
 EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
+EPISODES_TO_LLM_SPLIT = ["4x01 The Freshman", "4x02 Living Conditions", "4x22 Restless"]
 
 # Database paths for different embedding models
-db_path = "./vector_db-nomic.db"
+db_path = "./vector_db_all-MiniLM-L6-v2.db"
 #db_path = "./vector_db-mutli-qa-mpnet-base-dot-v1.db"
 # Web Scraping Values
 
@@ -23,15 +24,29 @@ final_k = 20
 [WINDOW]
 window_size = 8
 step_size = 3
+scene_split_markers = [
+        "cut ",
+        "(cut ",
+        "dissolve to",
+        "~~~~~~~",
+        "==",
+        "***",
+        "act ",
+        "episode opens",
+        "open on",
+        "-------",
+    ]
 
 [EMBEDDING_MODEL]
-#model_name = "all-MiniLM-L6-v2"
+model_name = "all-MiniLM-L6-v2"
 #model_name = "multi-qa-mpnet-base-dot-v1"
-model_name = "nomic-ai/nomic-embed-text-v1.5"
+#model_name = "nomic-ai/nomic-embed-text-v1.5"
 #model_name = "jxm/cde-small-v2"
-#model_dim = 384
-model_dim = 768
+model_dim = 384
+#model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
+
+
 
 [EVALUATION.search_queries]
 "giles holds a feather duster in his mouth" = """Cut to Giles's apartment. He's dusting inside one of his book cases. He stops as he suddenly remembers something. He holds the feather duster between his teeth and takes an old tome from the shelf. He opens it and sits down on a cushion footrest. He reads then does a calculation with his fingers. He removes the featherduster."""

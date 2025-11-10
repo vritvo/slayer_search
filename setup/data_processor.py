@@ -2,6 +2,8 @@ import toml
 import os
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
+import json
+
 
 def make_scene_chunks():
     """Process script chunks and insert them row-by-row into the database."""
@@ -11,13 +13,20 @@ def make_scene_chunks():
 
     table_name = "scene"
 
+    config = toml.load("config.toml")
+    scene_split_markers = config["WINDOW"]["scene_split_markers"]
+
+    with open("scene_splits/all_scene_splits.json", "r") as file:
+        print('Loading scene splits...')
+        all_scene_splits = json.load(file)
+        exception_scene_dict = convert_scene_splits_to_dict(all_scene_splits)
+
     try:
         # Process all files in the scripts directory
         for file_name in os.listdir("scripts"):
-            # for file_name in [
-            #     "1x01 Welcome to the Hellmouth.txt",
-            #     "4x12 A New Man.txt",
-            # ]:
+        # for file_name in [
+        #     "4x22 Restless.txt"
+        # ]:
             if not file_name.endswith(".txt"):
                 continue
 
@@ -33,20 +42,15 @@ def make_scene_chunks():
             # curr_chunk = a list of individual lines for the current scene. Gets reset each time a "cut" is encountered.
             curr_chunk = []  # current scene chunk
             chunk_index = 0
+            episode_name = file_name.replace(".txt", "")
 
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
-                if (
-                    line.strip().lower().startswith("cut ")
-                    | line.strip().lower().startswith("(cut ")
-                    | line.strip().lower().startswith("dissolve to")
-                    | line.strip().lower().startswith("~~~~~~~")
-                    | line.strip().lower().startswith("==")
-                    | line.strip().lower().startswith("***")
-                    | line.strip().lower().startswith("act ")
-                    | line.strip().lower().startswith("episode opens")
-                    | line.strip().lower().startswith("open on")
-                ):
+                line_lower = line.strip().lower()
+
+                # If the line starts with a scene split marker or is in the exception scene list, start a new chunk.
+                if any(line_lower.startswith(marker) for marker in scene_split_markers) | (episode_name in exception_scene_dict and line_lower in exception_scene_dict[episode_name]):
+                    
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
                         chunk_text = "\n".join(curr_chunk).strip()
@@ -54,8 +58,6 @@ def make_scene_chunks():
                             print(f"  Splitting chunk {chunk_index}")
 
                             # Insert into main table
-                            episode_name = file_name.replace(".txt", "")
-
                             cur.execute(
                                 f"""
                                 INSERT INTO {table_name}
@@ -91,7 +93,7 @@ def make_scene_chunks():
                         VALUES (?, ?, ?)
                     """,
                         (
-                            file_name,
+                            episode_name,
                             chunk_index,
                             chunk_text,
                         ),
@@ -108,6 +110,7 @@ def make_scene_chunks():
 
 def make_window_chunk(chunk):
     """Create window chunks from a text chunk."""
+
     # Load window configuration
     config = toml.load("config.toml")
     window_size = config["WINDOW"]["window_size"]
@@ -225,3 +228,10 @@ def insert_window_db():
         con.rollback()  # Rollback on error
     finally:
         con.close()
+
+def convert_scene_splits_to_dict(all_scene_splits: list[dict]) -> dict:
+    """Convert scene splits to dictionary where key is the episode title."""
+    exception_scene_dict = {}
+    for episode in all_scene_splits:
+        exception_scene_dict[episode["episode_title"]] = [scene.lower() for scene in episode["scene_breaks"]]
+    return exception_scene_dict

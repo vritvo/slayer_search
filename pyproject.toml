@@ -20,4 +20,5 @@ dependencies = ["bs4",
                 "notebook",
                 "ipykernel",
                 "einops",
-                "langextract"]
+                "langextract",
+                "anthropic"]
