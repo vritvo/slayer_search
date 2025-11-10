@@ -2,6 +2,7 @@ import toml
 import os
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
+import json
 
 
 def make_scene_chunks():
@@ -14,13 +15,18 @@ def make_scene_chunks():
 
     config = toml.load("config.toml")
     scene_split_markers = config["WINDOW"]["scene_split_markers"]
+
+    with open("scene_splits/all_scene_splits.json", "r") as file:
+        print('Loading scene splits...')
+        all_scene_splits = json.load(file)
+        exception_scene_dict = convert_scene_splits_to_dict(all_scene_splits)
+
     try:
         # Process all files in the scripts directory
         for file_name in os.listdir("scripts"):
-            # for file_name in [
-            #     "1x01 Welcome to the Hellmouth.txt",
-            #     "4x12 A New Man.txt",
-            # ]:
+        # for file_name in [
+        #     "4x22 Restless.txt"
+        # ]:
             if not file_name.endswith(".txt"):
                 continue
 
@@ -41,7 +47,10 @@ def make_scene_chunks():
             for line in lines:
                 # If we've hit a new scene, start a new chunk.
                 line_lower = line.strip().lower()
-                if any(line_lower.startswith(marker) for marker in scene_split_markers):
+
+                # If the line starts with a scene split marker or is in the exception scene list, start a new chunk.
+                if any(line_lower.startswith(marker) for marker in scene_split_markers) | (episode_name in exception_scene_dict and line_lower in exception_scene_dict[episode_name]):
+                    
                     # If we have accumulated lines, save as a chunk and insert into DB
                     if curr_chunk:
                         chunk_text = "\n".join(curr_chunk).strip()
@@ -219,3 +228,10 @@ def insert_window_db():
         con.rollback()  # Rollback on error
     finally:
         con.close()
+
+def convert_scene_splits_to_dict(all_scene_splits: list[dict]) -> dict:
+    """Convert scene splits to dictionary where key is the episode title."""
+    exception_scene_dict = {}
+    for episode in all_scene_splits:
+        exception_scene_dict[episode["episode_title"]] = [scene.lower() for scene in episode["scene_breaks"]]
+    return exception_scene_dict
