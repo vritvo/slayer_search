@@ -3,24 +3,21 @@ Main pipeline runner that orchestrates the full data processing pipeline.
 This script is run once to build the database and embeddings.
 """
 
-from setup.data_processor import make_scene_chunks, insert_window_db, format_scene_breakup
+from setup.data_processor import (
+    make_scene_chunks,
+    insert_window_db,
+)
 from utils.database import init_scene_tables, init_window_tables, clear_table
 from utils.models import initialize_models, make_embeddings
 import time
 import gc
 import argparse
 
-def run_full_pipeline(split_scenes): 
-    
-    if  split_scenes:
-        print("Splitting scenes...")
-        fewiaojfweaij
-        format_scene_breakup(start_file_fresh=True)
-    
+
+def run_full_pipeline(split_scenes):
     """Run the complete data processing pipeline."""
     print("Running embeddings")
     print("Starting full data pipeline...")
-    asdf
     # Initialize tables
     print("Initializing scene tables...")
     init_scene_tables()
@@ -58,9 +55,16 @@ def run_full_pipeline(split_scenes):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the full data processing pipeline")
-    parser.add_argument("--split-scenes", "-ss", action="store_true", help="Split scenes into smaller chunks")
+    parser = argparse.ArgumentParser(
+        description="Run the full data processing pipeline"
+    )
+    parser.add_argument(
+        "--split-scenes",
+        "-ss",
+        action="store_true",
+        help="Split scenes into smaller chunks",
+    )
     args = parser.parse_args()
 
-    split_scenes = args.split_scenes   
+    split_scenes = args.split_scenes
     run_full_pipeline(split_scenes)

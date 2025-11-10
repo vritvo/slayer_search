@@ -2,9 +2,10 @@
 SCRIPT_FOLDER = "scripts/"
 EMBEDDINGS_FOLDER = "embeddings/"
 LOGS_FOLDER = "logs/"
+EPISODES_TO_LLM_SPLIT = ["4x01 The Freshman", "4x02 Living Conditions", "4x22 Restless"]
 
 # Database paths for different embedding models
-db_path = "./vector_db-test.db"
+db_path = "./vector_db-cde_x3.db"
 #db_path = "./vector_db-mutli-qa-mpnet-base-dot-v1.db"
 # Web Scraping Values
 
@@ -39,10 +40,10 @@ scene_split_markers = [
 [EMBEDDING_MODEL]
 #model_name = "all-MiniLM-L6-v2"
 #model_name = "multi-qa-mpnet-base-dot-v1"
-model_name = "nomic-ai/nomic-embed-text-v1.5"
-#model_name = "jxm/cde-small-v2"
-model_dim = 384
-#model_dim = 768
+#model_name = "nomic-ai/nomic-embed-text-v1.5"
+model_name = "jxm/cde-small-v2"
+#model_dim = 384
+model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
 
