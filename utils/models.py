@@ -218,8 +218,6 @@ def tag_text(input_text, generate_html=False):
         [result], output_name="extraction_results.jsonl", output_dir="."
     )
 
-    print(result.extractions)
-
     # Generate the visualization from the file
     if generate_html:
         html_content = lx.visualize("extraction_results.jsonl")
@@ -230,5 +228,110 @@ def tag_text(input_text, generate_html=False):
                 f.write(html_content)
         # return html_content
 
-    print(result.extractions)
     return result.extractions
+
+
+if __name__ == "__main__":
+    input_text = """
+    (Buffy leaning through the curtains to grab her.)
+
+    WILLOW
+    Buffy! Oh god.
+
+    BUFFY
+    Come on. (Helps her up and through the curtain. They're in a
+
+    Sunnydale High classroom.)
+
+    BUFFY
+    Stay low. (They crouch down and creep between the desks) What did it look like?
+
+    WILLOW
+    I don't know. I-I don't know what's after me.
+
+    BUFFY
+    Well, you must have *done* something. (Frowning in disapproval)
+
+    WILLOW
+    No. I never do anything. I'm very seldom naughty. I, I just came to class, and, and the play was starting.
+
+    BUFFY
+    (straightens up) Play is long over. (Stares at Willow) Why are you still in costume?
+
+    WILLOW
+    Okay, still having to explain wherein this is just my outfit.
+
+    (Gesturing to her clothes)
+
+    BUFFY
+    Willow, everybody already knows. Take it off.
+
+    WILLOW
+    No. No. (Looks around nervously) I need it.
+
+    (Buffy rolls her eyes.)
+
+    BUFFY
+    Oh, for god's sake, just take it off.
+
+    (Spins Willow around and rips her clothes off.)
+
+    BUFFY
+    That's better. It's much more realistic.
+
+    (Suddenly all the desks have students in them. Buffy turns and goes to take her seat.)
+
+    HARMONY
+    See? Isn't everybody very clear on this now?
+
+    (We see Anya sitting next to Harmony, giggling. The whole class is giggling.)
+
+    (Shot of Willow in her nerdy schoolgirl outfit and long straight hair from
+
+    BTVS first season. Holding some paper.)
+
+    ANYA
+    My god, it's like a tragedy.
+
+    (Shot of Buffy looking at Willow.)
+
+    OZ
+    (to Tara) I tried to warn you. (Gives Willow a disgusted look)
+
+    ANYA
+    (still giggling) It's exactly like a Greek tragedy. There should only be Greeks.
+
+    (Willow looks around the room nervously, looks down at her paper.)
+
+    WILLOW
+    (licks lips) My book report. This summer I, I read "The Lion, the
+
+    Witch and the Wardrobe."
+
+    XANDER
+    (loudly, to ceiling) Oh, who cares?
+
+    (Willow looks hurt. Sound of giggling. shot of Oz nuzzling Tara's cheek while she giggles.)
+
+    WILLOW
+    This book ha-has many themes...
+
+    (Something bursts onscreen and knocks Willow down. She screams.)
+
+    (Shot of Buffy putting her head down on her arms on the desk, looking bored. Sound of Willow screaming and the attacker growling.)
+
+    WILLOW
+    Help! Help me!
+
+    (Shot of Xander looking bored.)
+
+    (Shot of Oz and Tara giving each other conspiratorial smiles.)
+
+    WILLOW
+    Help me!
+
+    (Growling noise continues as Willow struggles. The creature/person attacking Willow has dark skin and long matted dark hair, and is wrapped in rags. It bends as if to bite her neck. Closeup of Willow's face with the dark hair half-obscuring it. Her eyes widen. The skin on her face wrinkles and her eyes cloud.)
+        
+        
+        """
+    tag_text(input_text, generate_html=True)
