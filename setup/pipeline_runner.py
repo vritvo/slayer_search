@@ -6,6 +6,7 @@ This script is run once to build the database and embeddings.
 from setup.data_processor import (
     make_scene_chunks,
     insert_window_db,
+    tag_scene_locations,
 )
 from utils.database import init_scene_tables, init_window_tables, clear_table
 from utils.models import initialize_models, make_embeddings
@@ -14,7 +15,7 @@ import gc
 import argparse
 
 
-def run_full_pipeline(split_scenes):
+def run_full_pipeline(tag_locations=False, filter_episodes=None):
     """Run the complete data processing pipeline."""
     print("Running embeddings")
     print("Starting full data pipeline...")
@@ -42,12 +43,19 @@ def run_full_pipeline(split_scenes):
     time.sleep(1.0)
     gc.collect()
 
-    print("\n2. Creating window chunks...")
+    # Optional: Tag scenes with locations
+    if tag_locations:
+        print("\n2. Tagging scene locations...")
+        tag_scene_locations(filter_episodes=filter_episodes)
+        time.sleep(1.0)
+        gc.collect()
+
+    print("\n3. Creating window chunks...")
     insert_window_db()  # Create window chunks in database
     time.sleep(1.0)
     gc.collect()
 
-    print("\n3. Creating window embeddings...")
+    print("\n4. Creating window embeddings...")
     initialize_models()
     make_embeddings()  # Create embeddings for window chunks only
 
@@ -58,13 +66,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run the full data processing pipeline"
     )
+
     parser.add_argument(
-        "--split-scenes",
-        "-ss",
+        "--tag-locations",
+        "-tl",
         action="store_true",
-        help="Split scenes into smaller chunks",
+        help="Tag scenes with location information using LangExtract",
+    )
+    parser.add_argument(
+        "--filter-episodes",
+        "-fe",
+        nargs="+",
+        help="Only process specific episodes (e.g., '1x12 Prophecy Girl' '5x07 Fool For Love')",
     )
     args = parser.parse_args()
 
-    split_scenes = args.split_scenes
-    run_full_pipeline(split_scenes)
+    tag_locations = args.tag_locations
+    filter_episodes = args.filter_episodes
+    
+    run_full_pipeline(tag_locations=tag_locations, filter_episodes=filter_episodes)

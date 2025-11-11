@@ -71,7 +71,12 @@ def make_embeddings():
     all_chunks = []
     all_ids = []
     for db_chunk_row in iter_chunk:
-        embedded_text = f"{doc_formatting}episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+        # Build embedded text with optional location prefix
+        location_prefix = ""
+        if db_chunk_row.get('location_descr'):
+            location_prefix = f"location: {db_chunk_row['location_descr']}\n"
+        
+        embedded_text = f"{doc_formatting}\nepisode: {db_chunk_row['file_name']}\n{location_prefix}:\n{db_chunk_row['text']}"
         all_chunks.append(embedded_text)
         all_ids.append(db_chunk_row["window_id"])
 

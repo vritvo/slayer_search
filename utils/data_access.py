@@ -10,7 +10,7 @@ def iter_scenes(batch_size: int = 500):
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT scene_id, scene_id_in_episode, scene_text, file_name
+            SELECT scene_id, scene_id_in_episode, scene_text, file_name, location_text, location_descr
             FROM scene
             ORDER BY file_name, scene_id_in_episode
         """)
@@ -24,6 +24,8 @@ def iter_scenes(batch_size: int = 500):
                     "scene_id_in_episode": r["scene_id_in_episode"],
                     "text": r["scene_text"],
                     "file_name": r["file_name"],
+                    "location_text": r["location_text"],
+                    "location_descr": r["location_descr"],
                 }
             con.commit()
     except Exception as e:
@@ -32,15 +34,23 @@ def iter_scenes(batch_size: int = 500):
         con.close()
 
 def iter_windows(batch_size: int = 500):
-    """Yield window rows from the DB in batches as dicts."""
+    """Yield window rows from the DB in batches as dicts with location info from parent scene."""
     con = get_db_connection()
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT window_id, scene_id, window_id_in_scene, window_text, file_name
-            FROM window
-            ORDER BY file_name, scene_id, window_id_in_scene
+            SELECT 
+                w.window_id, 
+                w.scene_id, 
+                w.window_id_in_scene, 
+                w.window_text, 
+                w.file_name,
+                s.location_text,
+                s.location_descr
+            FROM window w
+            JOIN scene s ON w.scene_id = s.scene_id
+            ORDER BY w.file_name, w.scene_id, w.window_id_in_scene
         """)
 
         while True:
@@ -54,6 +64,8 @@ def iter_windows(batch_size: int = 500):
                     "window_id_in_scene": r["window_id_in_scene"],
                     "text": r["window_text"],
                     "file_name": r["file_name"],
+                    "location_text": r["location_text"],
+                    "location_descr": r["location_descr"],
                 }
             con.commit()
     except Exception as e:

@@ -3,6 +3,7 @@ import os
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
 import json
+from utils.models import tag_text
 
 
 def make_scene_chunks():
@@ -235,3 +236,87 @@ def convert_scene_splits_to_dict(all_scene_splits: list[dict]) -> dict:
     for episode in all_scene_splits:
         exception_scene_dict[episode["episode_title"]] = [scene.lower() for scene in episode["scene_breaks"]]
     return exception_scene_dict
+
+
+def tag_scene_locations(filter_episodes=None):
+    """
+    Generate and store location tags for all scenes (or filtered episodes).
+    
+    Args:
+        filter_episodes: Optional list of episode names to process (e.g., ["1x12 Prophecy Girl"])
+                        If None, processes all scenes.
+    """
+    
+    con = get_db_connection()
+    cur = con.cursor()
+    
+    failed_scenes = []
+    success_count = 0
+    skipped_count = 0
+    
+    try:
+        for scene_row in iter_scenes():
+            # Skip if filtering and this episode isn't in the list
+            if filter_episodes and scene_row["file_name"] not in filter_episodes:
+                skipped_count += 1
+                continue
+                
+            print(f"\nProcessing scene {scene_row['scene_id']} from {scene_row['file_name']}")
+            print(f"  Scene text preview: {scene_row['text'][:100]}...")
+            
+            try:
+                # Generate location tags
+                result = tag_text(scene_row["text"], generate_html=False)
+                
+                extraction_list = []
+                location_descr_list = []
+                
+                for extraction in result:
+                    extraction_list.append(extraction.extraction_text)
+                    if extraction.attributes and "location_descr" in extraction.attributes:
+                        location_descr_list.append(extraction.attributes["location_descr"])
+                
+                location_text = " | ".join(extraction_list)
+                location_descr = " | ".join(location_descr_list)
+                
+                # Update database
+                cur.execute(
+                    """
+                    UPDATE scene 
+                    SET location_text = ?, location_descr = ?
+                    WHERE scene_id = ?
+                    """,
+                    (location_text, location_descr, scene_row["scene_id"])
+                )
+                con.commit()  # Commit after each scene to save progress
+                
+                success_count += 1
+                print(f"  ✓ Tagged: {location_descr}")
+                
+            except Exception as e:
+                print(f"  ✗ FAILED: {type(e).__name__}: {str(e)}")
+                failed_scenes.append({
+                    "scene_id": scene_row["scene_id"],
+                    "file_name": scene_row["file_name"],
+                    "error": str(e)
+                })
+                continue
+        
+        print(f"\n{'='*60}")
+        print(f"Location tagging complete!")
+        print(f"  Successfully tagged: {success_count} scenes")
+        if skipped_count > 0:
+            print(f"  Skipped (filtered): {skipped_count} scenes")
+        if failed_scenes:
+            print(f"  Failed: {len(failed_scenes)} scenes")
+            # Save failed scenes to JSON for review
+            with open("location_tagging_failures.json", "w") as f:
+                json.dump(failed_scenes, f, indent=2)
+            print(f"  Failed scenes saved to: location_tagging_failures.json")
+        print(f"{'='*60}\n")
+                
+    except Exception as e:
+        print(f"Error in tag_scene_locations: {e}")
+        con.rollback()
+    finally:
+        con.close()
