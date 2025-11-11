@@ -6,13 +6,13 @@ from utils.models import tag_text
 chunk_num = 0
 
 episode_list = [
-    # "1x12 Prophecy Girl",
+    "1x12 Prophecy Girl",
     # "2x22 Becoming, Part 2",
     # "3x01 Anne",
     # "4x05 Beer Bad",
-    # "5x07 Fool For Love",
-    # "7x02 Beneath You",
-    "4x22 Restless",
+    "5x07 Fool For Love",
+    "7x02 Beneath You",
+    # "4x22 Restless",
 ]
 
 # Collect all results in a list
@@ -84,17 +84,3 @@ with open("lang_extract_results.json", "w") as f:
 if failed_scenes:
     with open("lang_extract_failed.json", "w") as f:
         json.dump(failed_scenes, f, indent=2)
-
-# Print summary
-print("\n" + "="*60)
-print("PROCESSING COMPLETE")
-print("="*60)
-print(f"✓ Successfully processed: {len(results)} scenes")
-print(f"✗ Failed to process: {len(failed_scenes)} scenes")
-if failed_scenes:
-    print(f"\nFailed scenes saved to: lang_extract_failed.json")
-    print("Failed scene IDs:")
-    for failed in failed_scenes:
-        print(f"  - {failed['file_name']}: scene {failed['scene_id']}")
-print(f"\nSuccessful results saved to: lang_extract_results.json")
-print("="*60)
