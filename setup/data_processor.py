@@ -1,5 +1,7 @@
 import toml
 import os
+import hashlib
+import sqlite3
 from utils.database import get_db_connection
 from utils.data_access import iter_scenes
 import json
@@ -58,17 +60,22 @@ def make_scene_chunks():
                         if chunk_text:
                             print(f"  Splitting chunk {chunk_index}")
 
+                            # Compute hash for this scene
+                            scene_bytes = chunk_text.encode("utf-8")
+                            scene_hash = hashlib.sha256(scene_bytes).hexdigest()
+
                             # Insert into main table
                             cur.execute(
                                 f"""
                                 INSERT INTO {table_name}
-                                (file_name, scene_id_in_episode, scene_text)
-                                VALUES (?, ?, ?)
+                                (file_name, scene_id_in_episode, scene_text, scene_hash)
+                                VALUES (?, ?, ?, ?)
                             """,
                                 (
                                     episode_name,
                                     chunk_index,
                                     chunk_text,
+                                    scene_hash,
                                 ),
                             )
                             chunk_index += 1
@@ -86,17 +93,22 @@ def make_scene_chunks():
                 if chunk_text:
                     print(f"  Processing chunk {chunk_index}")
 
+                    # Compute hash for this scene
+                    scene_bytes = chunk_text.encode("utf-8")
+                    scene_hash = hashlib.sha256(scene_bytes).hexdigest()
+
                     # Insert into main table
                     cur.execute(
                         f"""
                         INSERT INTO {table_name}
-                        (file_name, scene_id_in_episode, scene_text)
-                        VALUES (?, ?, ?)
+                        (file_name, scene_id_in_episode, scene_text, scene_hash)
+                        VALUES (?, ?, ?, ?)
                     """,
                         (
                             episode_name,
                             chunk_index,
                             chunk_text,
+                            scene_hash,
                         ),
                     )
 
@@ -238,21 +250,74 @@ def convert_scene_splits_to_dict(all_scene_splits: list[dict]) -> dict:
     return exception_scene_dict
 
 
-def tag_scene_locations(filter_episodes=None):
+def load_locations_from_json(json_path="scene_locations.json"):
     """
-    Generate and store location tags for all scenes (or filtered episodes).
+    Load location data from JSON and populate the scene table.
+    This is run at the start of each pipeline rebuild to restore location data.
+    
+    Args:
+        json_path: Path to JSON file containing location data
+    """
+    try:
+        with open(json_path, "r") as f:
+            location_data = json.load(f)
+        
+        if not location_data:
+            print("Location JSON is empty")
+            return
+        
+        con = get_db_connection()
+        cur = con.cursor()
+        
+        updated_count = 0
+        for scene_hash, data in location_data.items():
+            cur.execute("""
+                UPDATE scene 
+                SET location_text = ?, location_descr = ?
+                WHERE scene_hash = ?
+            """, (data.get('location_text', ''), data.get('location_descr', ''), scene_hash))
+            if cur.rowcount > 0:
+                updated_count += 1
+        
+        con.commit()
+        con.close()
+        print(f"✓ Loaded {updated_count} location tags from {json_path}")
+        
+    except FileNotFoundError:
+        print(f"No location data found at {json_path} - scenes will not have location tags")
+    except Exception as e:
+        print(f"Error loading locations from JSON: {e}")
+
+
+def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json"):
+    """
+    Generate and store location tags for NEW scenes only.
+    Saves ONLY to JSON (persistent storage). Database is populated later by load_locations_from_json().
+    Checks JSON first to skip already-tagged scenes.
     
     Args:
         filter_episodes: Optional list of episode names to process (e.g., ["1x12 Prophecy Girl"])
                         If None, processes all scenes.
+        json_path: Path to JSON file for persistent location storage
     """
     
+    # Load existing location data from JSON
+    existing_locations = {}
+    try:
+        with open(json_path, "r") as f:
+            existing_locations = json.load(f)
+        print(f"Loaded {len(existing_locations)} existing location tags from {json_path}")
+    except FileNotFoundError:
+        print(f"No existing location data found - will create new {json_path}")
+    
     con = get_db_connection()
+    con.row_factory = sqlite3.Row
     cur = con.cursor()
     
     failed_scenes = []
     success_count = 0
     skipped_count = 0
+    already_tagged_count = 0
     
     try:
         for scene_row in iter_scenes():
@@ -260,6 +325,13 @@ def tag_scene_locations(filter_episodes=None):
             if filter_episodes and scene_row["file_name"] not in filter_episodes:
                 skipped_count += 1
                 continue
+            
+            scene_hash = scene_row["scene_hash"]
+            
+            # Check if this scene already has location data in JSON
+            if scene_hash in existing_locations:
+                already_tagged_count += 1
+                continue  # Skip - already tagged, will be loaded to DB later
                 
             print(f"\nProcessing scene {scene_row['scene_id']} from {scene_row['file_name']}")
             print(f"  Scene text preview: {scene_row['text'][:100]}...")
@@ -279,16 +351,17 @@ def tag_scene_locations(filter_episodes=None):
                 location_text = " | ".join(extraction_list)
                 location_descr = " | ".join(location_descr_list)
                 
-                # Update database
-                cur.execute(
-                    """
-                    UPDATE scene 
-                    SET location_text = ?, location_descr = ?
-                    WHERE scene_id = ?
-                    """,
-                    (location_text, location_descr, scene_row["scene_id"])
-                )
-                con.commit()  # Commit after each scene to save progress
+                # Save to JSON (persistent storage) - database updated later
+                existing_locations[scene_hash] = {
+                    "scene_id": scene_row["scene_id"],
+                    "file_name": scene_row["file_name"],
+                    "location_text": location_text,
+                    "location_descr": location_descr,
+                }
+                
+                # Write JSON after each successful tag to save progress
+                with open(json_path, "w") as f:
+                    json.dump(existing_locations, f, indent=2)
                 
                 success_count += 1
                 print(f"  ✓ Tagged: {location_descr}")
@@ -297,6 +370,7 @@ def tag_scene_locations(filter_episodes=None):
                 print(f"  ✗ FAILED: {type(e).__name__}: {str(e)}")
                 failed_scenes.append({
                     "scene_id": scene_row["scene_id"],
+                    "scene_hash": scene_hash,
                     "file_name": scene_row["file_name"],
                     "error": str(e)
                 })
@@ -304,19 +378,20 @@ def tag_scene_locations(filter_episodes=None):
         
         print(f"\n{'='*60}")
         print(f"Location tagging complete!")
-        print(f"  Successfully tagged: {success_count} scenes")
+        print(f"  Already tagged (skipped): {already_tagged_count} scenes")
+        print(f"  Newly tagged: {success_count} scenes")
         if skipped_count > 0:
             print(f"  Skipped (filtered): {skipped_count} scenes")
         if failed_scenes:
             print(f"  Failed: {len(failed_scenes)} scenes")
-            # Save failed scenes to JSON for review
+            # Save failed scenes to separate JSON for review
             with open("location_tagging_failures.json", "w") as f:
                 json.dump(failed_scenes, f, indent=2)
             print(f"  Failed scenes saved to: location_tagging_failures.json")
+        print(f"  Total in JSON: {len(existing_locations)} scenes")
         print(f"{'='*60}\n")
                 
     except Exception as e:
         print(f"Error in tag_scene_locations: {e}")
-        con.rollback()
     finally:
         con.close()

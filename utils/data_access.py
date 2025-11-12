@@ -10,7 +10,7 @@ def iter_scenes(batch_size: int = 500):
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""
-            SELECT scene_id, scene_id_in_episode, scene_text, file_name, location_text, location_descr
+            SELECT scene_id, scene_id_in_episode, scene_text, file_name, scene_hash, location_text, location_descr
             FROM scene
             ORDER BY file_name, scene_id_in_episode
         """)
@@ -24,6 +24,7 @@ def iter_scenes(batch_size: int = 500):
                     "scene_id_in_episode": r["scene_id_in_episode"],
                     "text": r["scene_text"],
                     "file_name": r["file_name"],
+                    "scene_hash": r["scene_hash"],
                     "location_text": r["location_text"],
                     "location_descr": r["location_descr"],
                 }
@@ -46,6 +47,7 @@ def iter_windows(batch_size: int = 500):
                 w.window_id_in_scene, 
                 w.window_text, 
                 w.file_name,
+                s.scene_hash,
                 s.location_text,
                 s.location_descr
             FROM window w
@@ -64,6 +66,7 @@ def iter_windows(batch_size: int = 500):
                     "window_id_in_scene": r["window_id_in_scene"],
                     "text": r["window_text"],
                     "file_name": r["file_name"],
+                    "scene_hash": r["scene_hash"],
                     "location_text": r["location_text"],
                     "location_descr": r["location_descr"],
                 }

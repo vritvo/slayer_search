@@ -7,6 +7,7 @@ from setup.data_processor import (
     make_scene_chunks,
     insert_window_db,
     tag_scene_locations,
+    load_locations_from_json,
 )
 from utils.database import init_scene_tables, init_window_tables, clear_table
 from utils.models import initialize_models, make_embeddings
@@ -43,19 +44,24 @@ def run_full_pipeline(tag_locations=False, filter_episodes=None):
     time.sleep(1.0)
     gc.collect()
 
-    # Optional: Tag scenes with locations
+    # Optional: Tag NEW scenes with locations (updates JSON only)
     if tag_locations:
-        print("\n2. Tagging scene locations...")
+        print("\n2. Tagging NEW scene locations (updates JSON)...")
         tag_scene_locations(filter_episodes=filter_episodes)
         time.sleep(1.0)
         gc.collect()
 
-    print("\n3. Creating window chunks...")
+    print(f"\n{3 if tag_locations else 2}. Loading location data from JSON to database...")
+    load_locations_from_json()  # Load ALL location data from JSON into DB
+    time.sleep(0.5)
+    gc.collect()
+
+    print(f"\n{4 if tag_locations else 3}. Creating window chunks...")
     insert_window_db()  # Create window chunks in database
     time.sleep(1.0)
     gc.collect()
 
-    print("\n4. Creating window embeddings...")
+    print(f"\n{5 if tag_locations else 4}. Creating window embeddings...")
     initialize_models()
     make_embeddings()  # Create embeddings for window chunks only
 

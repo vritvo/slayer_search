@@ -37,6 +37,7 @@ def init_scene_tables():
             scene_id_in_episode INTEGER,
             scene_text TEXT,
             file_name TEXT,
+            scene_hash TEXT,
             location_text TEXT,
             location_descr TEXT
         )
