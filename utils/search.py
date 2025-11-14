@@ -25,6 +25,10 @@ def semantic_search(search_query: str, initial_k=10):
     keywords = re.findall(r'"(.*?)"', search_query)
     search_query = search_query.replace('"', "")
 
+    # Find all speakers: 
+    speakers = re.findall(r'\b(\w+):', search_query)
+    search_query = search_query.replace(':', '')
+
     # Initialize context_embeddings for all model types
     context_embeddings = None
 
@@ -62,6 +66,19 @@ def semantic_search(search_query: str, initial_k=10):
     else:
         keyword_filter = ""
 
+    # Similar search for speakers. But unlike for keywords, the speaker will always be the first word of a new line. 
+    # We search for the speaker name after a newline
+    speaker_conditions = []
+    if speakers:
+        for speaker in speakers:
+            speaker_conditions.append("LOWER(e.window_text) LIKE ?")
+            # Match speaker on its own line: preceded by a newline.
+            query_params.append(f"%\n{speaker.lower()}%")
+        
+        speaker_filter = " AND " + " AND ".join(speaker_conditions)
+    else:
+        speaker_filter = ""
+
     # Find similar embeddings (keyword_filter is either empty or has AND conditions)
     sql_query = f"""
     SELECT e.file_name, e.scene_id, e.window_start, e.window_end, e.window_id_in_scene, e.window_text, v.distance
@@ -70,7 +87,7 @@ def semantic_search(search_query: str, initial_k=10):
     WHERE vss_search(
         v.embedding,
         vss_search_params(?, ?)
-    ){keyword_filter}
+    ){keyword_filter}{speaker_filter}
     ORDER BY v.distance
     """
     rows = cur.execute(
