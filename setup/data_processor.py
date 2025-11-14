@@ -28,7 +28,13 @@ def make_scene_chunks():
         # Process all files in the scripts directory
         for file_name in os.listdir("scripts"):
         # for file_name in [
-        #     "4x22 Restless.txt"
+        #     "1x02 The Harvest.txt",
+        #     "2x01 When She Was Bad.txt",
+        #     "3x01 Anne.txt", 
+        #     "4x01 The Freshman.txt",
+        #     "5x07 Fool For Love.txt",
+        #     "6x08 Tabula Rasa .txt",
+        #     "7x02 Beneath You.txt"
         # ]:
             if not file_name.endswith(".txt"):
                 continue

@@ -51,7 +51,9 @@ def run_full_pipeline(tag_locations=False, filter_episodes=None):
         time.sleep(1.0)
         gc.collect()
 
-    print(f"\n{3 if tag_locations else 2}. Loading location data from JSON to database...")
+    print(
+        f"\n{3 if tag_locations else 2}. Loading location data from JSON to database..."
+    )
     load_locations_from_json()  # Load ALL location data from JSON into DB
     time.sleep(0.5)
     gc.collect()
@@ -89,5 +91,5 @@ if __name__ == "__main__":
 
     tag_locations = args.tag_locations
     filter_episodes = args.filter_episodes
-    
+
     run_full_pipeline(tag_locations=tag_locations, filter_episodes=filter_episodes)

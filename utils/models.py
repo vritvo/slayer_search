@@ -73,10 +73,10 @@ def make_embeddings():
     for db_chunk_row in iter_chunk:
         # Build embedded text with optional location prefix
         location_prefix = ""
-        if db_chunk_row.get('location_descr'):
-            location_prefix = f"location: {db_chunk_row['location_descr']}\n"
-        
-        embedded_text = f"{doc_formatting}\nepisode: {db_chunk_row['file_name']}\n{location_prefix}:\n{db_chunk_row['text']}"
+        if db_chunk_row.get("location_descr"):
+            location_prefix = f"Location: {db_chunk_row['location_descr']}\n"
+
+        embedded_text = f"{doc_formatting}\nEpisode: {db_chunk_row['file_name']}\n{location_prefix}Text: \n{db_chunk_row['text']}"
         all_chunks.append(embedded_text)
         all_ids.append(db_chunk_row["window_id"])
 
@@ -89,7 +89,7 @@ def make_embeddings():
         # Divide chunks by season by creating a dict: {season: [chunks]}
         seasons = {}
         for chunk in all_chunks:
-            season = chunk.split("episode: ")[1].split("x")[0]
+            season = chunk.split("Episode: ")[1].split("x")[0]
             if season not in seasons:
                 seasons[season] = []
             seasons[season].append(chunk)
@@ -238,105 +238,85 @@ def tag_text(input_text, generate_html=False):
 
 if __name__ == "__main__":
     input_text = """
-    (Buffy leaning through the curtains to grab her.)
+    Cut to the library. Willow has the city plans on the computer monitor.
 
-    WILLOW
-    Buffy! Oh god.
+BUFFY
+There it is.
 
-    BUFFY
-    Come on. (Helps her up and through the curtain. They're in a
+WILLOW
+That runs under the graveyard.
 
-    Sunnydale High classroom.)
+XANDER
+I don't see any access.
 
-    BUFFY
-    Stay low. (They crouch down and creep between the desks) What did it look like?
+GILES
+So, all the city plans are just, uh, open to the public?
 
-    WILLOW
-    I don't know. I-I don't know what's after me.
+WILLOW
+Um, well, i-in a way. I sort of stumbled onto them when I accidentally decrypted the city council's security system.
 
-    BUFFY
-    Well, you must have *done* something. (Frowning in disapproval)
+XANDER
+Someone's been naughty.
 
-    WILLOW
-    No. I never do anything. I'm very seldom naughty. I, I just came to class, and, and the play was starting.
+BUFFY
+There's nothing here, this is useless!
 
-    BUFFY
-    (straightens up) Play is long over. (Stares at Willow) Why are you still in costume?
+GILES
+I think you're being a bit hard on yourself.
 
-    WILLOW
-    Okay, still having to explain wherein this is just my outfit.
+BUFFY
+You're the one that told me that I wasn't prepared enough. Understatement! (exhales) I thought I was on top of everything, and then that monster, Luke, came out of nowhere...
 
-    (Gesturing to her clothes)
+She flashes back to the fight in the mausoleum.
 
-    BUFFY
-    Willow, everybody already knows. Take it off.
+XANDER
+What?
 
-    WILLOW
-    No. No. (Looks around nervously) I need it.
+BUFFY
+He didn't come out of nowhere. He came from behind me. I was facing the entrance, he came from behind me, and he didn't follow me out. The access to the tunnels is in the mausoleum! The girl must have doubled back with Jesse after I got out! God! I am so mentally challenged!
 
-    (Buffy rolls her eyes.)
+XANDER
+So, what's the plan? We saddle up, right?
 
-    BUFFY
-    Oh, for god's sake, just take it off.
+BUFFY
+There's no 'we', okay? I'm the Slayer, and you're not.
 
-    (Spins Willow around and rips her clothes off.)
+XANDER
+I knew you'd throw that back in my face.
 
-    BUFFY
-    That's better. It's much more realistic.
+BUFFY
+Xander, this is deeply dangerous.
 
-    (Suddenly all the desks have students in them. Buffy turns and goes to take her seat.)
+XANDER
+I'm inadequate. That's fine. I'm less than a man.
 
-    HARMONY
-    See? Isn't everybody very clear on this now?
+WILLOW
+Buffy, I'm not anxious to go into a dark place full of monsters. But I do want to help. I need to.
 
-    (We see Anya sitting next to Harmony, giggling. The whole class is giggling.)
+GILES
+Well, then help me. I've been researching this Harvest affair. It seems to be some sort of preordained massacre. Rivers of blood, Hell on Earth, quite charmless. I'm a bit fuzzy, however, on the details. It may be that you can wrest some information from that dread machine.
 
-    (Shot of Willow in her nerdy schoolgirl outfit and long straight hair from
+Everyone stares at him. He looks back at them all.
 
-    BTVS first season. Holding some paper.)
+GILES
+That was a bit, um, British, wasn't it?
 
-    ANYA
-    My god, it's like a tragedy.
+BUFFY
+(smiles) Welcome to the New World.
 
-    (Shot of Buffy looking at Willow.)
+GILES
+(to Willow) I want you to go on the 'Net.
 
-    OZ
-    (to Tara) I tried to warn you. (Gives Willow a disgusted look)
+WILLOW
+Oh, sure, I can do that. (begins to type)
 
-    ANYA
-    (still giggling) It's exactly like a Greek tragedy. There should only be Greeks.
+BUFFY
+Then I'm outta here. If Jesse's alive, I'll bring him back. (starts to leave)
 
-    (Willow looks around the room nervously, looks down at her paper.)
+GILES
+Do I have to tell you to be careful?
 
-    WILLOW
-    (licks lips) My book report. This summer I, I read "The Lion, the
-
-    Witch and the Wardrobe."
-
-    XANDER
-    (loudly, to ceiling) Oh, who cares?
-
-    (Willow looks hurt. Sound of giggling. shot of Oz nuzzling Tara's cheek while she giggles.)
-
-    WILLOW
-    This book ha-has many themes...
-
-    (Something bursts onscreen and knocks Willow down. She screams.)
-
-    (Shot of Buffy putting her head down on her arms on the desk, looking bored. Sound of Willow screaming and the attacker growling.)
-
-    WILLOW
-    Help! Help me!
-
-    (Shot of Xander looking bored.)
-
-    (Shot of Oz and Tara giving each other conspiratorial smiles.)
-
-    WILLOW
-    Help me!
-
-    (Growling noise continues as Willow struggles. The creature/person attacking Willow has dark skin and long matted dark hair, and is wrapped in rags. It bends as if to bite her neck. Closeup of Willow's face with the dark hair half-obscuring it. Her eyes widen. The skin on her face wrinkles and her eyes cloud.)
-        
+Buffy turns back, gives Giles a look and goes. 
         
         """
     tag_text(input_text, generate_html=True)
