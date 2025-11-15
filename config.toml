@@ -5,8 +5,9 @@ LOGS_FOLDER = "logs/"
 EPISODES_TO_LLM_SPLIT = ["4x01 The Freshman", "4x02 Living Conditions", "4x22 Restless"]
 
 # Database paths for different embedding models
-#db_path = "./vector_db_all-MiniLM-L6-v2.db"
-db_path = "./vector_db_cde-small-v2-x2.db"
+db_path = "./vector_db_all-MiniLM-L6-v2.db"
+#db_path = "./vector_db_cde-small-v2-x2.db"
+#db_path = "./vector_db-nomic.db"
 
 #db_path = "./vector_db-mutli-qa-mpnet-base-dot-v1.db"
 # Web Scraping Values
@@ -20,7 +21,7 @@ User-Agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 
 [SEARCH]
 initial_k = 200
-initial_k_buffer = 3
+initial_k_buffer = 1 
 final_k = 20
 
 [WINDOW]
@@ -40,12 +41,12 @@ scene_split_markers = [
     ]
 
 [EMBEDDING_MODEL]
-#model_name = "all-MiniLM-L6-v2"
+model_name = "all-MiniLM-L6-v2"
 #model_name = "multi-qa-mpnet-base-dot-v1"
 #model_name = "nomic-ai/nomic-embed-text-v1.5"
-model_name = "jxm/cde-small-v2"
-#model_dim = 384
-model_dim = 768
+#model_name = "jxm/cde-small-v2"
+model_dim = 384
+#model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
 
