@@ -21,7 +21,7 @@ User-Agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 
 [SEARCH]
 initial_k = 200
-initial_k_buffer = 1 
+initial_k_buffer = 3 
 final_k = 20
 
 [WINDOW]

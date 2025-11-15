@@ -20,14 +20,15 @@ def initialize_models():
 
     config = toml.load("config.toml")
     model_name = config["EMBEDDING_MODEL"]["model_name"]
-    # Load bi-encoder model
+    
+    # Load bi-encoder model on CPU (more consistent than MPS for small models)
     print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
 
     if model_name.startswith("nomic"):
-        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device='cpu')
         _models["context_embeddings"] = None
     elif model_name.startswith("jxm/cde"):
-        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True)
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device='cpu')
         # Try to load context embeddings if they exist, but don't fail if they don't
         try:
             _models["context_embeddings"] = torch.load("buffy_dataset_context.pt")
@@ -38,8 +39,17 @@ def initialize_models():
             )
             _models["context_embeddings"] = None
     else:
-        _models["bi_encoder"] = SentenceTransformer(model_name)
+        _models["bi_encoder"] = SentenceTransformer(model_name, device='cpu')
         _models["context_embeddings"] = None
+
+    # Set model to eval mode for inference
+    _models["bi_encoder"].eval()
+    
+    # Warm up the model to optimize tokenizer and inference
+    print("Warming up bi-encoder model...")
+    with torch.no_grad():
+        _models["bi_encoder"].encode("warmup query", show_progress_bar=False, convert_to_numpy=True)
+    print("Model ready")
 
     # Load cross-encoder model
     print(f"Loading cross-encoder: {config['EMBEDDING_MODEL']['crossencoder_model']}")

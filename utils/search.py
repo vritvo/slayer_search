@@ -2,6 +2,7 @@ import sqlite3
 import re
 import numpy as np
 import time
+import torch
 from utils.database import get_db_connection, return_db_connection
 from utils.models import _models
 from utils.data_access import get_scene_from_id
@@ -52,19 +53,24 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=None, mode
 
     # Embedding generation
     t_start = time.time()
-    # convert to np array and then to bytes (BLOB for sqlite)
-    if model_name.startswith("jxm/cde"):
-        # encode with CDE method
-        search_vec = model.encode(
-            search_query,
-            prompt_name="query",
-            dataset_embeddings=context_embeddings,
-            convert_to_tensor=False,
-        )
-        # Convert to bytes for sqlite-vss
-        search_vec = np.asarray(search_vec, dtype=np.float32).tobytes()
-    else:
-        search_vec = np.asarray(model.encode(search_query), dtype=np.float32).tobytes()
+    
+    # Convert to np array and then to bytes (BLOB for sqlite)
+    with torch.no_grad():  # Disable gradient computation for faster inference
+        if model_name.startswith("jxm/cde"):
+            # encode with CDE method
+            search_vec = model.encode(
+                search_query,
+                prompt_name="query",
+                dataset_embeddings=context_embeddings,
+                convert_to_tensor=False,
+            )
+            # Convert to bytes for sqlite-vss
+            search_vec = np.asarray(search_vec, dtype=np.float32).tobytes()
+        else:
+            search_vec = np.asarray(
+                model.encode(search_query, show_progress_bar=False, convert_to_numpy=True), 
+                dtype=np.float32
+            ).tobytes()
     timings['embedding'] = time.time() - t_start
 
     # Query building
