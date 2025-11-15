@@ -1,14 +1,33 @@
 import toml
 import sqlite3
 import sqlite_vss
+from threading import Lock
+
+# Connection pool for reusing database connections
+_connection_pool = []
+_pool_lock = Lock()
+_pool_size = 5
 
 
 def get_db_connection():
-    """Get database connection with the correct path for the embedding model."""
+    """Get database connection from pool or create new one."""
+    with _pool_lock:
+        # Try to get connection from pool
+        if _connection_pool:
+            con = _connection_pool.pop()
+            # Test if connection is still alive
+            try:
+                con.execute("SELECT 1")
+                return con
+            except:
+                # Connection is dead, create new one
+                pass
+    
+    # Create new connection
     config = toml.load("config.toml")
     db_path = config["db_path"]
 
-    con = sqlite3.connect(db_path, timeout=20.0)  # Add timeout
+    con = sqlite3.connect(db_path, timeout=20.0, check_same_thread=False)
 
     # Load the sqlite-vss extension
     con.enable_load_extension(True)
@@ -19,11 +38,24 @@ def get_db_connection():
     finally:
         con.enable_load_extension(False)
 
-    # Set some pragmas for better concurrency
+    # Set pragmas for better performance and larger cache
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
+    con.execute("PRAGMA cache_size=-64000")  # 64MB cache (negative means KB)
+    con.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
+    con.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
 
     return con
+
+
+def return_db_connection(con):
+    """Return a connection to the pool for reuse."""
+    with _pool_lock:
+        if len(_connection_pool) < _pool_size:
+            _connection_pool.append(con)
+        else:
+            # Pool is full, close the connection
+            con.close()
 
 def init_scene_tables():
     """Initialize the scene table (needed for data processing)."""

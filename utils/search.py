@@ -1,9 +1,8 @@
-import toml
 import sqlite3
 import re
 import numpy as np
 import time
-from utils.database import get_db_connection
+from utils.database import get_db_connection, return_db_connection
 from utils.models import _models
 from utils.data_access import get_scene_from_id
 import pandas as pd
@@ -117,7 +116,8 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=None, mode
     ).fetchall()  # query params gives values to fill in the ?s
     timings['sql_execute'] = time.time() - t_start
 
-    con.close()
+    # Return connection to pool instead of closing
+    return_db_connection(con)
     
     # Result processing
     t_start = time.time()
@@ -169,14 +169,15 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=None, mode
     # Print profiling information if enabled
     if ENABLE_PROFILING:
         print("\n--- semantic_search profiling ---")
-        print(f"  DB connect:        {timings['db_connect']*1000:6.2f}ms")
+        print(f"  DB connect:        {timings['db_connect']*1000:6.2f}ms (pooled)")
         print(f"  Preprocessing:     {timings['preprocessing']*1000:6.2f}ms")
-        print(f"  Embedding:         {timings['embedding']*1000:6.2f}ms")
+        print(f"  Embedding:         {timings['embedding']*1000:6.2f}ms 🔥")
         print(f"  Query build:       {timings['query_build']*1000:6.2f}ms")
-        print(f"  SQL execute:       {timings['sql_execute']*1000:6.2f}ms")
+        print(f"  SQL execute:       {timings['sql_execute']*1000:6.2f}ms 🔍")
         print(f"  Result processing: {timings['result_processing']*1000:6.2f}ms")
-        print(f"  Scene fetch:       {timings['scene_fetch']*1000:6.2f}ms")
+        print(f"  Scene fetch:       {timings['scene_fetch']*1000:6.2f}ms (pooled)")
         print(f"  TOTAL:             {timings['total']*1000:6.2f}ms")
+        print(f"  Results returned:  {len(results)}")
         print("----------------------------------\n")
 
     return results

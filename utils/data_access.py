@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from utils.database import get_db_connection 
+from utils.database import get_db_connection, return_db_connection 
 
 
 def iter_scenes(batch_size: int = 500):
@@ -110,7 +110,7 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
         print(f"Error in get_scene_from_id: {e}")
         return {}
     finally:
-        con.close()
+        return_db_connection(con)
         
         
 def batch_insert_into_vss_table(embeddings_data):
