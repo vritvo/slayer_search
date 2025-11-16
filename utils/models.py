@@ -14,21 +14,43 @@ from dotenv import load_dotenv
 _models = {}
 
 
-def initialize_models():
-    """Load all models at startup and store them globally."""
+def initialize_models(use_gpu_for_building=False):
+    """Load all models at startup and store them globally.
+    
+    Args:
+        use_gpu_for_building: If True, auto-detect and use best available GPU 
+                             (CUDA/MPS) for batch embedding building.
+                             If False, use CPU (better for single-query search).
+    """
     print("Loading models...")
 
     config = toml.load("config.toml")
     model_name = config["EMBEDDING_MODEL"]["model_name"]
     
-    # Load bi-encoder model on CPU (more consistent than MPS for small models)
+    # Choose device based on use case
+    if use_gpu_for_building:
+        # Auto-detect best available GPU
+        if torch.cuda.is_available():
+            device = 'cuda'
+            print("Using CUDA (NVIDIA GPU) for batch embedding building")
+        elif torch.backends.mps.is_available():
+            device = 'mps'
+            print("Using MPS (Apple GPU) for batch embedding building")
+        else:
+            device = 'cpu'
+            print("GPU requested but not available, using CPU")
+    else:
+        device = 'cpu'
+        print("Using CPU for consistent inference")
+    
+    # Load bi-encoder model on chosen device
     print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
 
     if model_name.startswith("nomic"):
-        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device='cpu')
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device=device)
         _models["context_embeddings"] = None
     elif model_name.startswith("jxm/cde"):
-        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device='cpu')
+        _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device=device)
         # Try to load context embeddings if they exist, but don't fail if they don't
         try:
             _models["context_embeddings"] = torch.load("buffy_dataset_context.pt")
@@ -39,7 +61,7 @@ def initialize_models():
             )
             _models["context_embeddings"] = None
     else:
-        _models["bi_encoder"] = SentenceTransformer(model_name, device='cpu')
+        _models["bi_encoder"] = SentenceTransformer(model_name, device=device)
         _models["context_embeddings"] = None
 
     # Set model to eval mode for inference
@@ -62,22 +84,33 @@ def initialize_models():
 
 def make_embeddings():
     """Create embeddings for window chunks and insert into DB."""
+    overall_start = time.time()
+    
+    print("Clearing window_vss table...")
     clear_table("window_vss")
 
     # Collect all window data first to avoid connection conflicts
+    print("Loading window data from database...")
+    load_start = time.time()
     iter_chunk = list(iter_windows())
+    load_time = time.time() - load_start
+    print(f"  Loaded {len(list(iter_chunk))} windows in {load_time:.2f}s")
 
     config = toml.load("config.toml")
     model_name = config["EMBEDDING_MODEL"]["model_name"]
-    print(model_name)
-    # model = SentenceTransformer(model_name)
     model = _models["bi_encoder"]
+    
+    # Verify device
+    print(f"\nModel: {model_name}")
+    print(f"Device: {model.device}")
 
     if model_name.startswith("nomic"):
         doc_formatting = "search_document: "
     else:
         doc_formatting = ""
 
+    print("\nPreparing text for embedding...")
+    prep_start = time.time()
     all_chunks = []
     all_ids = []
     for db_chunk_row in iter_chunk:
@@ -89,8 +122,21 @@ def make_embeddings():
         embedded_text = f"{doc_formatting}\nEpisode: {db_chunk_row['file_name']}\n{location_prefix}Text: \n{db_chunk_row['text']}"
         all_chunks.append(embedded_text)
         all_ids.append(db_chunk_row["window_id"])
+    prep_time = time.time() - prep_start
+    print(f"  Prepared {len(all_chunks)} chunks in {prep_time:.2f}s")
 
-    print(f"Creating embeddings for {len(all_chunks)} window chunks...")
+    print(f"\nCreating embeddings for {len(all_chunks)} window chunks...")
+    print(f"  Average chunk length: {sum(len(c) for c in all_chunks) / len(all_chunks):.0f} chars")
+    
+    # Adjust batch size based on device
+    device_type = str(model.device).split(':')[0]  # Get 'cpu', 'cuda', or 'mps'
+    if device_type in ['cuda', 'mps']:
+        batch_size = 64  # Conservative batch size for GPU (avoids OOM)
+        print(f"  Using batch_size={batch_size} for GPU ({device_type})")
+    else:
+        batch_size = 64  # Optimal for CPU
+        print(f"  Using batch_size={batch_size} for CPU")
+    
     if model_name.startswith("jxm/cde"):
         print("Train Model 1")
         # Train Model 1
@@ -158,34 +204,56 @@ def make_embeddings():
         _models["context_embeddings"] = context_embeddings
 
         # ---- Stage 2: embed all documents conditioned on the cached context ----
+        print("\nTrain Model 2 (document embeddings)")
         start_time = time.time()
-        print("Train Model 2 (document embeddings)")
         all_embeddings = model.encode(
             all_chunks,  # full corpus at retrieval granularity
             prompt_name="document",
             dataset_embeddings=context_embeddings,
             convert_to_tensor=False,
+            batch_size=batch_size,
+            show_progress_bar=True
         )
         end_time = time.time()
-        print(f"Computed all embeddings in {end_time - start_time:.2f} seconds.")
+        chunks_per_sec = len(all_chunks) / (end_time - start_time)
+        print(f"  Encoded {len(all_chunks)} chunks in {end_time - start_time:.2f}s ({chunks_per_sec:.1f} chunks/s)")
 
     else:
         # Non-CDE path:
+        print("\nEncoding all chunks...")
         start_time = time.time()
-        all_embeddings = model.encode(all_chunks)
+        all_embeddings = model.encode(
+            all_chunks,
+            batch_size=batch_size,
+            show_progress_bar=True,
+            convert_to_numpy=True
+        )
         end_time = time.time()
-        print(f"Computed all embeddings in {end_time - start_time:.2f} seconds.")
+        chunks_per_sec = len(all_chunks) / (end_time - start_time)
+        print(f"  Encoded {len(all_chunks)} chunks in {end_time - start_time:.2f}s ({chunks_per_sec:.1f} chunks/s)")
         # TODO: encode vs encode_document https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html
 
     # Prepare embeddings data for batch insertion
+    print("\nPreparing embeddings for database insertion...")
+    prep_start = time.time()
     embeddings_data = []
     for chunk_id, embedding in zip(all_ids, all_embeddings):
         # ensure plain list for sqlite-vss adapter
         embeddings_data.append((chunk_id, embedding.tolist()))
+    prep_time = time.time() - prep_start
+    print(f"  Prepared {len(embeddings_data)} embeddings in {prep_time:.2f}s")
 
     # Actually insert the embeddings into the database
-    print(f"Batch inserting {len(embeddings_data)} window embeddings...")
+    print(f"\nInserting {len(embeddings_data)} embeddings into database...")
+    insert_start = time.time()
     batch_insert_into_vss_table(embeddings_data)
+    insert_time = time.time() - insert_start
+    print(f"  Inserted all embeddings in {insert_time:.2f}s")
+    
+    total_time = time.time() - overall_start
+    print(f"\n{'='*60}")
+    print(f"TOTAL TIME: {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    print(f"{'='*60}")
 
 
 def tag_text(input_text, generate_html=False):

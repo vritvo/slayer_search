@@ -2,7 +2,8 @@ import pandas as pd
 import toml
 import os
 import argparse
-from utils import semantic_search, initialize_models
+from utils.search import semantic_search
+from utils.models import initialize_models
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def evaluate_semantic_search(notes=""):
     for listed_query, correct_answer in search_queries.items():
         search_query = listed_query
         print(search_query)
-        rows = semantic_search(search_query, initial_k)
+        rows = semantic_search(search_query, initial_k, initial_k_buffer=None, model_name=bi_encoder_model)
 
         rows_df = pd.DataFrame(rows)
 

@@ -1,7 +1,7 @@
 import sqlite3
 import json
 from utils.database import get_db_connection, return_db_connection 
-
+import time
 
 def iter_scenes(batch_size: int = 500):
     """Yield scene rows from the DB in batches as dicts. Used for data processing."""
@@ -119,9 +119,11 @@ def batch_insert_into_vss_table(embeddings_data):
     cur = con.cursor()
 
     batch_size = 1000
+    num_batches = (len(embeddings_data) + batch_size - 1) // batch_size
 
     try:
         for i in range(0, len(embeddings_data), batch_size):
+            batch_start = time.time()
             batch = embeddings_data[i : i + batch_size]
 
             batch_values = [
@@ -137,8 +139,10 @@ def batch_insert_into_vss_table(embeddings_data):
             )
 
             con.commit()
+            batch_time = time.time() - batch_start
+            batch_num = i // batch_size + 1
             print(
-                f"Inserted batch {i // batch_size + 1}: {len(batch)} embeddings into window_vss"
+                f"  Batch {batch_num}/{num_batches}: Inserted {len(batch)} embeddings in {batch_time:.2f}s"
             )
 
     except Exception as e:

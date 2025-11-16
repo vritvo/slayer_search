@@ -16,8 +16,14 @@ import gc
 import argparse
 
 
-def run_full_pipeline(tag_locations=False, filter_episodes=None):
-    """Run the complete data processing pipeline."""
+def run_full_pipeline(tag_locations=False, filter_episodes=None, use_gpu=False):
+    """Run the complete data processing pipeline.
+    
+    Args:
+        tag_locations: Tag scenes with location information
+        filter_episodes: Only process specific episodes
+        use_gpu: Use GPU for batch embedding building
+    """
     print("Running embeddings")
     print("Starting full data pipeline...")
     # Initialize tables
@@ -64,7 +70,7 @@ def run_full_pipeline(tag_locations=False, filter_episodes=None):
     gc.collect()
 
     print(f"\n{5 if tag_locations else 4}. Creating window embeddings...")
-    initialize_models()
+    initialize_models(use_gpu_for_building=use_gpu)
     make_embeddings()  # Create embeddings for window chunks only
 
     print("\nPipeline completed successfully!")
@@ -87,9 +93,16 @@ if __name__ == "__main__":
         nargs="+",
         help="Only process specific episodes (e.g., '1x12 Prophecy Girl' '5x07 Fool For Love')",
     )
+    parser.add_argument(
+        "--use-gpu",
+        "-gpu",
+        action="store_true",
+        help="Use GPU for batch embedding building )",
+    )
     args = parser.parse_args()
 
     tag_locations = args.tag_locations
     filter_episodes = args.filter_episodes
+    use_gpu = args.use_gpu
 
-    run_full_pipeline(tag_locations=tag_locations, filter_episodes=filter_episodes)
+    run_full_pipeline(tag_locations=tag_locations, filter_episodes=filter_episodes, use_gpu=use_gpu)
