@@ -1,0 +1,22 @@
+# fly.toml app configuration file generated for slayer-search on 2025-11-17T15:10:56-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'slayer-search'
+primary_region = 'iad'
+
+[build]
+
+[http_service]
+  internal_port = 5002
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

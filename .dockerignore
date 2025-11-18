@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+eval
+notes
+scene_splits 
+scripts 
+.env 
+evaluate_semantic_search.py
+location_tagging_failures.json
+visualization.html
+batch_test_lang_extract.py
+search_output.csv
+test_lang_extract.py
+*.db 
+
+!vector_db_all-MiniLM-L6-v2.db

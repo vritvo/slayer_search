@@ -7,10 +7,11 @@ import traceback
 import toml
 import sys
 import time
+import os
 
 
 app = Flask(__name__)
-
+HOST = os.getenv("HOST", default="127.0.0.1")
 USE_CROSS_ENCODER = False
 ENABLE_PROFILING = False  # Global flag controlled by command-line arg
 
@@ -95,4 +96,4 @@ if __name__ == "__main__":
         print("🔍 Profiling enabled")
 
     # app.run(debug=True, port=5001)
-    app.run(debug=False, use_reloader=False, port=5002)
+    app.run(debug=False, use_reloader=False, host=HOST, port=5002)

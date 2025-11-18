@@ -22,7 +22,7 @@ def get_db_connection():
             except:
                 # Connection is dead, create new one
                 pass
-    
+
     # Create new connection
     config = toml.load("config.toml")
     db_path = config["db_path"]
@@ -57,6 +57,7 @@ def return_db_connection(con):
             # Pool is full, close the connection
             con.close()
 
+
 def init_scene_tables():
     """Initialize the scene table (needed for data processing)."""
     con = get_db_connection()
@@ -76,6 +77,7 @@ def init_scene_tables():
     """)
     con.commit()
     con.close()
+
 
 def init_window_tables():
     """Initialize the window table and VSS virtual table."""
@@ -107,6 +109,7 @@ def init_window_tables():
     """)
     con.commit()
     con.close()
+
 
 def clear_table(table_name):
     """Clear all data from a table."""

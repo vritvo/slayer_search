@@ -24,6 +24,7 @@ vector_db*
 
 # misc
 notes/
+models/
 
 # eval
 eval/
