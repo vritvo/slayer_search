@@ -1,0 +1,8 @@
+services:
+  slayer_search:
+    build: . 
+    ports: 
+      - "80:5002"
+    restart: always
+
+    
