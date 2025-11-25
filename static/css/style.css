@@ -75,7 +75,7 @@ body{
   margin-left: 6px;
 }
 
-@media (max-width: 420px){
+@media (max-width: 768px){
   .incantation{ display:none; }
 }
 
@@ -136,7 +136,10 @@ body{
   overflow:auto;
 }
 
-.results-table{ width:100%; border-collapse:collapse; }
+.results-table{ 
+  width:100%; 
+  border-collapse:collapse; 
+}
 
 .results-table th{
   background: var(--surface);
@@ -349,7 +352,55 @@ body{
    1. Viewport is narrow AND device has touch capability, OR
    2. Viewport is very narrow (actual phone size) regardless of device type */
 @media (max-width: 768px) and (any-pointer: coarse), (max-width: 480px) {
+  /* Prevent body scroll on mobile */
+  body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100vh;
+    /* Ensure background persists */
+    background:
+      radial-gradient(1600px 800px at 85% -20%, rgba(244,239,194,0.08) 0%, rgba(244,239,194,0.03) 35%, transparent 60%),
+      radial-gradient(800px 600px at 15% 120%, rgba(139,92,246,0.12) 0%, transparent 60%),
+      linear-gradient(180deg, #0a0b12 0%, #0b0d18 40%, #0a1222 100%);
+  }
+  
+  .container {
+    height: 100vh;
+    overflow: hidden;
+    background: transparent;
+  }
+  
+  /* Fix search header at top */
+  .search-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 12px 16px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+  }
+  
+  /* Content area below fixed header */
+  .content {
+    position: fixed;
+    top: 200px; /* Approximate header height when collapsed */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
   /* Convert table to card layout on mobile */
+  .results-table {
+    display: block;
+    height: 100%;
+    padding: 50px 0;
+  }
+  
   .results-table thead {
     display: none; /* Hide table header */
   }
@@ -364,14 +415,22 @@ body{
     padding: 14px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgba(25,27,51,0.3);
+    background: rgba(25,27,51,0.5) !important; /* Darker card background */
     border-bottom: 1px solid var(--border) !important;
   }
   
+  .result-row:first-child {
+    margin-top: 0;
+  }
+  
+  .result-row:last-child {
+    margin-bottom: 0;
+  }
+  
   .result-row.selected {
-    border: 2px solid var(--lavender);
-    background: rgba(185,166,255,0.08);
-    box-shadow: 0 4px 12px rgba(185,166,255,0.15);
+    border: 2px solid var(--lavender) !important;
+    background: rgba(185,166,255,0.12) !important; /* Slightly more visible */
+    box-shadow: 0 4px 12px rgba(185,166,255,0.2);
   }
   
   .results-table td {
@@ -426,24 +485,33 @@ body{
   
   .filename {
     font-size: 15px;
+    color: var(--indigo); /* Maintain blue color */
   }
   
-  /* Stack the results and file panels vertically on mobile */
-  .content {
-    flex-direction: column;
+  .similarity {
+    color: var(--muted); /* Maintain muted color for scores */
   }
   
+  /* Two independently scrollable panels, 50% each */
   .results-panel {
     width: 100%;
-    min-height: 50vh;
-    max-height: 50vh;
+    height: 50%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    background-color: var(--bg);
+    scroll-padding-top: 0; 
   }
   
   .file-panel {
     width: 100%;
-    min-height: 50vh;
+    height: 50%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background-color: var(--bg-2);
   }
   
   /* Make file content more readable on mobile */
@@ -451,6 +519,13 @@ body{
     font-size: 14px;
     line-height: 1.7;
     padding: 16px;
+    padding-bottom: 40px;
+  }
+  
+  /* Ensure empty states display properly */
+  .empty-state {
+    padding: 40px 16px;
+    text-align: center;
   }
   
   .file-header {
@@ -459,13 +534,11 @@ body{
     position: sticky;
     top: 0;
     z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
   }
   
-  /* Improve header spacing on mobile */
-  .search-header {
-    padding: 12px 16px;
-  }
-  
+  /* Stack search box vertically */
   .search-box {
     flex-direction: column;
     gap: 8px;
@@ -478,6 +551,11 @@ body{
   
   .search-btn {
     padding: 14px 20px;
+  }
+  
+  /* Compact spacing for tips sections */
+  .tips-section {
+    margin-top: 6px;
   }
 }
 
