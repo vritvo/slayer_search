@@ -16,7 +16,15 @@ def set_profiling(enabled: bool):
     global ENABLE_PROFILING
     ENABLE_PROFILING = enabled
 
-def semantic_search(search_query: str, initial_k=10, initial_k_buffer=None, model_name=None):
+def _normalize_quotes(s: str) -> str: 
+    """Normalize quotes in a string to straight quotes (")""" 
+    quote_map = {
+        "“": '"',
+        "”": '"',
+    }
+    return s.translate(str.maketrans(quote_map))  
+
+def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_name=None):
     func_start = time.time()
     timings = {}
     
@@ -34,6 +42,7 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=None, mode
     # Text preprocessing
     t_start = time.time()
     # Keyword generation and text preprocessing:
+    search_query = _normalize_quotes(search_query)
     keywords = re.findall(r'"(.*?)"', search_query)
     search_query = search_query.replace('"', "")
 
