@@ -50,6 +50,17 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     speakers = re.findall(r'\b(\w+):', search_query)
     search_query = search_query.replace(':', '')
 
+    # Find season filter: -s followed by any characters, extract unique digits 1-7
+    seasons = set()
+    season_pattern = re.search(r'-s(\S+)', search_query)
+    if season_pattern:
+        # Extract all digits from the pattern
+        digits = re.findall(r'\d', season_pattern.group(1))
+        # Keep only valid seasons (1-7) and deduplicate
+        seasons = {int(d) for d in digits if 1 <= int(d) <= 7}
+        # Remove the -s pattern from the search query
+        search_query = re.sub(r'-s\S+', '', search_query).strip()
+    
     # Initialize context_embeddings for all model types
     context_embeddings = None
 
@@ -111,6 +122,16 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     else:
         speaker_filter = ""
 
+    season_filter = ""
+    if seasons:
+        season_conditions = []
+        for season in seasons:
+            # Find the season number. e.file name is of format "1x02 Episode Name", so the season is before the 'x'. 
+            season_conditions.append("SUBSTR(e.file_name, 1, INSTR(e.file_name, 'x') - 1) = ?")
+            query_params.append(str(season))
+        
+        season_filter = " AND (" + " OR ".join(season_conditions) + ")"
+
     # Find similar embeddings (keyword_filter is either empty or has AND conditions)
     sql_query = f"""
     SELECT e.file_name, e.scene_id, e.window_start, e.window_end, e.window_id_in_scene, e.window_text, v.distance
@@ -119,7 +140,7 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     WHERE vss_search(
         v.embedding,
         vss_search_params(?, ?)
-    ){keyword_filter}{speaker_filter}
+    ){keyword_filter}{speaker_filter}{season_filter}
     ORDER BY v.distance
     """
     timings['query_build'] = time.time() - t_start
