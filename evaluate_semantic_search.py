@@ -17,13 +17,15 @@ def evaluate_semantic_search(notes=""):
     config = toml.load("config.toml")
     initial_k = config["SEARCH"]["initial_k"]
     final_k = config["SEARCH"]["final_k"]
-    search_queries = config["EVALUATION"]["search_queries"]
     output_path = config["EVALUATION"]["params"]["output_path"]
     cross_encoder_model = config["EMBEDDING_MODEL"]["crossencoder_model"]
     bi_encoder_model = config["EMBEDDING_MODEL"]["model_name"]
     chunk_size = config["WINDOW"]["window_size"]
     overlap = config["WINDOW"]["step_size"]
 
+    # Get search queries 
+    search_queries_config = toml.load("eval/evaluation_queries.toml")
+    search_queries = search_queries_config["EVALUATION"]["search_queries"]
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -31,10 +33,11 @@ def evaluate_semantic_search(notes=""):
     results = pd.DataFrame()
 
     query_num = 0
-    for listed_query, correct_answer in search_queries.items():
-        search_query = listed_query
+    for query_item in search_queries:
+        search_query = query_item["query_text"]
+        correct_answer = query_item["script_text"]
         print(search_query)
-        rows = semantic_search(search_query, initial_k, initial_k_buffer=None, model_name=bi_encoder_model)
+        rows = semantic_search(search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model)
 
         rows_df = pd.DataFrame(rows)
 
@@ -181,3 +184,4 @@ if __name__ == "__main__":
     if not args.meta_only:
         evaluate_semantic_search(notes=args.notes)
     meta_evaluator(notes=args.notes)
+    print('done')

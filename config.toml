@@ -49,31 +49,6 @@ model_dim = 384
 #model_dim = 768
 crossencoder_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
-
-
-[EVALUATION.search_queries]
-"giles holds a feather duster in his mouth" = """Cut to Giles's apartment. He's dusting inside one of his book cases. He stops as he suddenly remembers something. He holds the feather duster between his teeth and takes an old tome from the shelf. He opens it and sits down on a cushion footrest. He reads then does a calculation with his fingers. He removes the featherduster."""
-"buffy tosses some money at spike, who is sitting on the ground below her" = """She tosses the wad of cash at him contemptuously."""
-"spike watches a footage showing buffy fighting" = """Cut to Spike's warehouse. He's watching the video that the vampire took of Buffy's fight."""
-"buffy and angel are at the graveyard talking about keeping on fighting no matter what and whether the world ever gets better" = """Buffy, you know, I'm still figuring things out. There's a lot I don't understand. But I do know it's important to keep fighting. I learned that from you."""
-"buffy and giles are at the graveyard and he's reading to her from a book what seems to be slayer mythology but then it turns out to be college test prep" = """Which of the following best expresses the theme of the passage? A) Violence breeds violence, B) All things must end, C)"""
-"buffy and giles are at the graveyard and doing SAT prep" = """Which of the following best expresses the theme of the passage? A) Violence breeds violence, B) All things must end, C)"""
-"buffy and her mom are at the mental institution. Buffy is upset, her mom is calming her down. she says her family loves her and she has to keep fighting. buffy says youre right, thank you, and goodbye" = """Buffy? Buffy! Buffy, fight it. You're too good to give in, you can beat this thing. Be strong, baby"""
-"buffy's doctor says she used to fight huge villains like gods, but now she just fights weak men" = """Buffy, you used to create these grand villains to battle against, and now what is it?"""
-"dawn tells spike she's worried she may be evil. he tells her that's silly. he knows good vs bad" = """I ... must be something so horrible ... to cause so much pain ... and evil."""
-"dawn and spike talking about whether she's evil. she says she's not evil but maybe not good. he says he's not good but he's ok" = """Maybe ... I'm not evil. But I don't think I can be good. (looks up at Spike with a hopeful expression)"""
-"willow and tara do a spell. tara tosses the material to the side before willow sees" = """Both blow but Tara surreptitiously lowers her hand and dumps her powder under the bed/table cloth? while Willow is actually blowing her powder."""
-"xander tells willow that if it's the apocalypse, there's no where else he'd be then right there with her, his best friend" = """Yeah, I get that. It's just, where else am I gonna go? You've been my best friend my whole life. World gonna end ... where else would I want to be?"""
-"spike and buffy are in the church, he tells her that he got a soul" = """They put the spark in me and now all it does is burn."""
-"the trio are talking about james bond" = """(to Andrew) Connery is Bond. He had style."""
-"ms calendar tells willow she needs her to be the substitute teacher for class" = """Um, I might be a little late tomorrow. Do you think you could cover my class till I show?"""
-"willow kills warren" = """Willow makes a casual gesture with one hand. A bolt of magic rips through Warren and tears the skin off his body in a single piece."""
-"season 6 buffy and willow talk at racks." = """Let me tell you something about Willow. (advancing toward Buffy) She's a loser."""
-"spike and drusilla talking. she says that he's obsessed with the slayer. there's a demon with them" = """You can't blame the ghoul, Spike. You're all covered with her. I look at you... all I see is the Slayer."""
-"spike and buffy are bickering. he's in the bathtub." = """Comfy? I'm chained in a bathtub drinkin' pig's blood from a novelty mug. Doesn't rank huge in the Zagut's Guide."""
-"giles and buffy's mom sit on the floor listening to music" = """Do you like Seals and Croft?"""
-"anya is in willow and tara's dorm. she says she doesn't understand how someone dies, that they were just alive"= """I don't understand how this all happens. How we go through this. I mean, I knew her"""
-
 [EVALUATION.params]
 output_path = "eval/evaluation.csv"
 
