@@ -34,36 +34,47 @@ def evaluate_semantic_search(notes=""):
 
     query_num = 0
     for query_item in search_queries:
-        search_query = query_item["query_text"]
-        correct_answer = query_item["script_text"]
-        print(search_query)
-        rows = semantic_search(search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model)
+        for location_type in [True, False]: 
+                
+            query_text = query_item["query_text"]
+            
+            if location_type:
+                location = query_item["location"] + ", "
+            else:
+                location = ""
+            
+            search_query = f"{location}{query_text}"
+            print(search_query)
+            
+            correct_answer = query_item["script_text"]
+            rows = semantic_search(search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model)
 
-        rows_df = pd.DataFrame(rows)
+            rows_df = pd.DataFrame(rows)
 
-        # Add metadata column
-        rows_df["query"] = search_query
-        rows_df["query_num"] = query_num
-        rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
-        rows_df["cross_encoder_model"] = cross_encoder_model
-        rows_df["bi_encoder_model"] = bi_encoder_model
-        rows_df["chunk_type"] = "window"  # Always window now
-        rows_df["chunk_size"] = chunk_size
-        rows_df["overlap"] = overlap
-        rows_df["initial_k"] = initial_k
-        rows_df["final_k"] = final_k
-        rows_df["notes"] = notes
+            # Add metadata column
+            rows_df["query"] = search_query
+            rows_df["location_type"] = location_type
+            rows_df["query_num"] = query_num
+            rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
+            rows_df["cross_encoder_model"] = cross_encoder_model
+            rows_df["bi_encoder_model"] = bi_encoder_model
+            rows_df["chunk_type"] = "window"  # Always window now
+            rows_df["chunk_size"] = chunk_size
+            rows_df["overlap"] = overlap
+            rows_df["initial_k"] = initial_k
+            rows_df["final_k"] = final_k
+            rows_df["notes"] = notes
 
-        # group by evaluation ID & query
+            # group by evaluation ID & query
 
-        rows_df["correct_match"] = rows_df["text"].str.contains(
-            correct_answer, case=False, regex=False
-        )
+            rows_df["correct_match"] = rows_df["text"].str.contains(
+                correct_answer, case=False, regex=False
+            )
 
-        results = pd.concat([results, rows_df], ignore_index=True)
-        results["date"] = pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S")
-        results["evaluation_id"] = pd.util.hash_pandas_object(results).sum()
-        query_num += 1
+            results = pd.concat([results, rows_df], ignore_index=True)
+            results["date"] = pd.Timestamp.now().strftime("%Y-%m-%d-%H-%M-%S")
+            results["evaluation_id"] = pd.util.hash_pandas_object(results).sum()
+            query_num += 1
 
     # Check if CSV exists and is non-empty
     header = True
@@ -72,6 +83,7 @@ def evaluate_semantic_search(notes=""):
 
     # Create Dataframe:
     eval_df = pd.DataFrame(results)
+    eval_df.sort_values(by = ['evaluation_id', 'bi_encoder_model', 'cross_encoder_model', 'query'])
 
     # Save to CSV
     eval_df.to_csv(output_path, mode="a", index=False, header=header)
@@ -95,6 +107,7 @@ def meta_evaluator(notes=""):
     meta_columns = [
         "evaluation_id",
         "query",
+        "location_type",
         "bi_encoder_model",
         "chunk_size",
         "overlap",
@@ -107,9 +120,10 @@ def meta_evaluator(notes=""):
     # 2) Calculate metrics for each query/evaluation combination
     query_metrics = []
 
-    for _, group in eval_df.groupby(["evaluation_id", "query"]):
+    for _, group in eval_df.groupby(["evaluation_id", "query", "location_type"]):
         eval_id = group["evaluation_id"].iloc[0]
         query = group["query"].iloc[0]
+        location_type = group["location_type"].iloc[0]
 
         # Check if correct answer is found in initial_k and final_k
         has_match_initial = group["correct_match"].any()
@@ -127,6 +141,7 @@ def meta_evaluator(notes=""):
             {
                 "evaluation_id": eval_id,
                 "query": query,
+                "location_type": location_type,
                 "pct_correct_in_initial_k": 1 if has_match_initial else 0,
                 "pct_correct_in_final_k": 1 if has_match_final else 0,
                 "avg_rank_overall": rank_overall,  # Includes all queries, with initial_k + 1 for non-matches
@@ -139,7 +154,7 @@ def meta_evaluator(notes=""):
 
     # 3) Merge with metadata
     meta_data = eval_df[meta_columns].drop_duplicates()
-    final_results = pd.merge(query_metrics_df, meta_data, on=["evaluation_id", "query"])
+    final_results = pd.merge(query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type"])
 
     # 4) Aggregate by evaluation (excluding query)
     meta_columns.remove("query")
@@ -184,4 +199,3 @@ if __name__ == "__main__":
     if not args.meta_only:
         evaluate_semantic_search(notes=args.notes)
     meta_evaluator(notes=args.notes)
-    print('done')
