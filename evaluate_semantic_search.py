@@ -5,11 +5,47 @@ import argparse
 from utils.search import semantic_search
 from utils.models import initialize_models
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
-def evaluate_semantic_search(notes=""):
+def coordinate_evaluation(notes=""):
+    search_queries_config = toml.load("eval/evaluation_queries.toml")
+    models = search_queries_config["EVALUATION"]["embedding_models"]
+    print(models[0])
+
+    # Get the current time, format as string
+    now = datetime.now()
+    now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+    for m in models:
+        evaluate_semantic_search(
+            bi_encoder_model=m["model_name"],
+            meta_data=m["include_meta"],
+            time_stamp=now_str,
+            notes=notes,
+        )
+
+    return
+
+
+def evaluate_semantic_search(
+    bi_encoder_model: str, meta_data: bool, time_stamp: str, notes: str = ""
+):
+    """
+    Runs an evaluation - a set of queries for a particular model.
+
+    Args:
+        bi_encoder_model (str): Which model to use. Should match the db name (followed by .db)
+        meta_data (bool): Whether this database includes injected metadata in the embedding (e.g. location)
+        time_stamp (str): The time this evaluation is run.
+        notes (str, optional): Any notes to add for this evaluation. Defaults to "".
+
+    Returns:
+        pandas.DataFrame: The dataframe that is also output to the .csv file.
+    """
+
     # Load models once at the start
     initialize_models()
 
@@ -17,37 +53,41 @@ def evaluate_semantic_search(notes=""):
     config = toml.load("config.toml")
     initial_k = config["SEARCH"]["initial_k"]
     final_k = config["SEARCH"]["final_k"]
-    output_path = config["EVALUATION"]["params"]["output_path"]
+    # output_path = config["EVALUATION"]["params"]["output_path"]
     cross_encoder_model = config["EMBEDDING_MODEL"]["crossencoder_model"]
-    bi_encoder_model = config["EMBEDDING_MODEL"]["model_name"]
+    # bi_encoder_model = config["EMBEDDING_MODEL"]["model_name"]
     chunk_size = config["WINDOW"]["window_size"]
     overlap = config["WINDOW"]["step_size"]
 
-    # Get search queries 
+    # Get search queries
     search_queries_config = toml.load("eval/evaluation_queries.toml")
     search_queries = search_queries_config["EVALUATION"]["search_queries"]
-    # Create output directory if it doesn't exist
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Collect all results first, then create DataFrame once
     results = pd.DataFrame()
 
+    output_path = f"eval/evaluation_{time_stamp}.csv"
+    print(output_path)
+    # Create output directory if it doesn't exist
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     query_num = 0
     for query_item in search_queries:
-        for location_type in [True, False]: 
-                
+        for location_type in [True, False]:
             query_text = query_item["query_text"]
-            
+
             if location_type:
                 location = query_item["location"] + ", "
             else:
                 location = ""
-            
+
             search_query = f"{location}{query_text}"
             print(search_query)
-            
+
             correct_answer = query_item["script_text"]
-            rows = semantic_search(search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model)
+            rows = semantic_search(
+                search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model
+            )
 
             rows_df = pd.DataFrame(rows)
 
@@ -58,6 +98,7 @@ def evaluate_semantic_search(notes=""):
             rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
             rows_df["cross_encoder_model"] = cross_encoder_model
             rows_df["bi_encoder_model"] = bi_encoder_model
+            rows_df["meta_data_included"] = meta_data
             rows_df["chunk_type"] = "window"  # Always window now
             rows_df["chunk_size"] = chunk_size
             rows_df["overlap"] = overlap
@@ -83,7 +124,9 @@ def evaluate_semantic_search(notes=""):
 
     # Create Dataframe:
     eval_df = pd.DataFrame(results)
-    eval_df.sort_values(by = ['evaluation_id', 'bi_encoder_model', 'cross_encoder_model', 'query'])
+    eval_df.sort_values(
+        by=["evaluation_id", "bi_encoder_model", "cross_encoder_model", "query"]
+    )
 
     # Save to CSV
     eval_df.to_csv(output_path, mode="a", index=False, header=header)
@@ -154,7 +197,9 @@ def meta_evaluator(notes=""):
 
     # 3) Merge with metadata
     meta_data = eval_df[meta_columns].drop_duplicates()
-    final_results = pd.merge(query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type"])
+    final_results = pd.merge(
+        query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type"]
+    )
 
     # 4) Aggregate by evaluation (excluding query)
     meta_columns.remove("query")
@@ -180,22 +225,24 @@ def meta_evaluator(notes=""):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate semantic search")
-    parser.add_argument(
-        "--notes",
-        "--n",
-        type=str,
-        default="",
-        help="Optional notes about this specific evaluation run",
-    )
-    parser.add_argument(
-        "--meta-only",
-        action="store_true",
-        default=False,
-        help="Only run meta evaluator, skip new evaluation",
-    )
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Evaluate semantic search")
+    # parser.add_argument(
+    #     "--notes",
+    #     "--n",
+    #     type=str,
+    #     default="",
+    #     help="Optional notes about this specific evaluation run",
+    # )
+    # parser.add_argument(
+    #     "--meta-only",
+    #     action="store_true",
+    #     default=False,
+    #     help="Only run meta evaluator, skip new evaluation",
+    # )
+    # args = parser.parse_args()
 
-    if not args.meta_only:
-        evaluate_semantic_search(notes=args.notes)
-    meta_evaluator(notes=args.notes)
+    # if not args.meta_only:
+    #     evaluate_semantic_search(notes=args.notes)
+    # meta_evaluator(notes=args.notes)
+
+    coordinate_evaluation()
