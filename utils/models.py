@@ -14,10 +14,12 @@ from dotenv import load_dotenv
 _models = {}
 
 
-def initialize_models(use_gpu_for_building=False):
+def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=False):
     """Load all models at startup and store them globally.
     
     Args:
+        model_name: Model to load (e.g., "all-MiniLM-L6-v2"). If None, reads from config.toml.
+        include_meta: Whether to load meta context embeddings for CDE models. If None, reads from config.
         use_gpu_for_building: If True, auto-detect and use best available GPU 
                              (CUDA/MPS) for batch embedding building.
                              If False, use CPU (better for single-query search).
@@ -25,7 +27,12 @@ def initialize_models(use_gpu_for_building=False):
     print("Loading models...")
 
     config = toml.load("config.toml")
-    model_name = config["EMBEDDING_MODEL"]["model_name"]
+    
+    # Use provided params or fall back to config
+    if model_name is None:
+        model_name = config["EMBEDDING_MODEL"]["model_name"]
+    if include_meta is None:
+        include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
     
     # Choose device based on use case
     if use_gpu_for_building:
@@ -44,7 +51,7 @@ def initialize_models(use_gpu_for_building=False):
         print("Using CPU for consistent inference")
     
     # Load bi-encoder model on chosen device
-    print(f"Loading bi-encoder: {config['EMBEDDING_MODEL']['model_name']}")
+    print(f"Loading bi-encoder: {model_name}")
 
     if model_name.startswith("nomic"):
         _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device=device)
@@ -52,12 +59,13 @@ def initialize_models(use_gpu_for_building=False):
     elif model_name.startswith("jxm/cde"):
         _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device=device)
         # Try to load context embeddings if they exist, but don't fail if they don't
+        context_file = f"buffy_dataset_context{'_no_meta' if not include_meta else ''}.pt"
         try:
-            _models["context_embeddings"] = torch.load("buffy_dataset_context.pt")
-            print("Loaded existing context embeddings for CDE model")
+            _models["context_embeddings"] = torch.load(context_file)
+            print(f"Loaded existing context embeddings from {context_file}")
         except FileNotFoundError:
             print(
-                "Context embeddings not found - will be created when running make_embeddings()"
+                f"Context embeddings not found at {context_file} - will be created when running make_embeddings()"
             )
             _models["context_embeddings"] = None
     else:

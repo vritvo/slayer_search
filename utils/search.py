@@ -24,14 +24,14 @@ def _normalize_quotes(s: str) -> str:
     }
     return s.translate(str.maketrans(quote_map))  
 
-def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_name=None):
+def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_name=None, db_path=None):
     func_start = time.time()
     timings = {}
     
     
     # Database connection
     t_start = time.time()
-    con = get_db_connection()
+    con = get_db_connection(db_path=db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     timings['db_connect'] = time.time() - t_start
@@ -152,8 +152,11 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     ).fetchall()  # query params gives values to fill in the ?s
     timings['sql_execute'] = time.time() - t_start
 
-    # Return connection to pool instead of closing
-    return_db_connection(con)
+    # Return connection to pool (or close if using custom db_path)
+    if db_path is None:
+        return_db_connection(con)
+    else:
+        con.close()
     
     # Result processing
     t_start = time.time()
@@ -192,7 +195,7 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     # Fetch scene texts for all results (like in cross_encoder)
     t_start = time.time()
     scene_ids = tuple(result["scene_id"] for result in results)
-    scene_id_dict = get_scene_from_id(scene_ids)
+    scene_id_dict = get_scene_from_id(scene_ids, db_path=db_path)
 
     # Add scene_text to each result
     for result in results:
@@ -219,9 +222,9 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
     return results
 
 
-def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10, initial_k_buffer=None, model_name=None):
+def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10, initial_k_buffer=None, model_name=None, db_path=None):
     # Use cached context embeddings instead of loading from disk every time
-    initial_candidates = semantic_search(search_query, initial_k=initial_k, initial_k_buffer=initial_k_buffer, model_name=model_name)
+    initial_candidates = semantic_search(search_query, initial_k=initial_k, initial_k_buffer=initial_k_buffer, model_name=model_name, db_path=db_path)
 
     print(f"Retrieved {len(initial_candidates)} initial candidates")
 
@@ -252,7 +255,7 @@ def cross_encoder(search_query: str, initial_k: int = 100, final_k: int = 10, in
     for i, result in enumerate(reranked_results):
         scene_ids.add(result["scene_id"])
     scene_ids = tuple(scene_ids)
-    scene_id_dict = get_scene_from_id(scene_ids)
+    scene_id_dict = get_scene_from_id(scene_ids, db_path=db_path)
 
     # Update results with final formatting
     results = []

@@ -9,23 +9,56 @@ _pool_lock = Lock()
 _pool_size = 5
 
 
-def get_db_connection():
-    """Get database connection from pool or create new one."""
-    with _pool_lock:
-        # Try to get connection from pool
-        if _connection_pool:
-            con = _connection_pool.pop()
-            # Test if connection is still alive
-            try:
-                con.execute("SELECT 1")
-                return con
-            except:
-                # Connection is dead, create new one
-                pass
+def get_db_path(model_name: str, include_meta: bool, db_tag: str = "") -> str:
+    """Derive database path from model configuration.
+    
+    Args:
+        model_name: The model identifier (e.g., "all-MiniLM-L6-v2" or "jxm/cde-small-v2")
+        include_meta: Whether embeddings include location/episode metadata
+        db_tag: Optional experiment tag (e.g., "x2" for double-sampling)
+    
+    Returns:
+        The database file path (e.g., "./vector_db_cde-small-v2-x2_no_meta.db")
+    """
+    # Sanitize model name: "jxm/cde-small-v2" → "cde-small-v2"
+    base = model_name.split("/")[-1]
+    
+    tag_part = f"-{db_tag}" if db_tag else ""
+    meta_part = "" if include_meta else "_no_meta"
+    
+    return f"./vector_db_{base}{tag_part}{meta_part}.db"
+
+
+def get_db_connection(db_path: str = None):
+    """Get database connection from pool or create new one.
+    
+    Args:
+        db_path: Optional explicit database path. If provided, bypasses the pool
+                 and creates a fresh connection (useful for evaluation across multiple dbs).
+                 If None, derives path from config and uses connection pooling.
+    """
+    use_pool = db_path is None
+    
+    if use_pool:
+        with _pool_lock:
+            # Try to get connection from pool
+            if _connection_pool:
+                con = _connection_pool.pop()
+                # Test if connection is still alive
+                try:
+                    con.execute("SELECT 1")
+                    return con
+                except:
+                    # Connection is dead, create new one
+                    pass
 
     # Create new connection
-    config = toml.load("config.toml")
-    db_path = config["db_path"]
+    if db_path is None:
+        config = toml.load("config.toml")
+        model_name = config["EMBEDDING_MODEL"]["model_name"]
+        include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
+        db_tag = config["EMBEDDING_MODEL"].get("db_tag", "")
+        db_path = get_db_path(model_name, include_meta, db_tag)
 
     con = sqlite3.connect(db_path, timeout=20.0, check_same_thread=False)
 

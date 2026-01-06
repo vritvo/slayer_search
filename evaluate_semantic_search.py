@@ -4,6 +4,7 @@ import os
 import argparse
 from utils.search import semantic_search
 from utils.models import initialize_models
+from utils.database import get_db_path
 import logging
 from datetime import datetime
 
@@ -22,7 +23,8 @@ def coordinate_evaluation(notes=""):
     for m in models:
         evaluate_semantic_search(
             bi_encoder_model=m["model_name"],
-            meta_data=m["include_meta"],
+            include_meta=m["include_meta"],
+            db_tag=m.get("db_tag", ""),
             time_stamp=now_str,
             notes=notes,
         )
@@ -31,23 +33,32 @@ def coordinate_evaluation(notes=""):
 
 
 def evaluate_semantic_search(
-    bi_encoder_model: str, meta_data: bool, time_stamp: str, notes: str = ""
+    bi_encoder_model: str, include_meta: bool, db_tag: str, time_stamp: str, notes: str = ""
 ):
     """
     Runs an evaluation - a set of queries for a particular model.
 
     Args:
-        bi_encoder_model (str): Which model to use. Should match the db name (followed by .db)
-        meta_data (bool): Whether this database includes injected metadata in the embedding (e.g. location)
+        bi_encoder_model (str): The model name (e.g., "all-MiniLM-L6-v2" or "jxm/cde-small-v2")
+        include_meta (bool): Whether this database includes injected metadata in the embedding (e.g. location)
+        db_tag (str): Optional experiment tag that is added to the db name)
         time_stamp (str): The time this evaluation is run.
         notes (str, optional): Any notes to add for this evaluation. Defaults to "".
 
     Returns:
         pandas.DataFrame: The dataframe that is also output to the .csv file.
     """
+    # Compute the database path for this model configuration
+    db_path = get_db_path(bi_encoder_model, include_meta, db_tag)
+    print(f"\n{'='*60}")
+    print(f"Evaluating: {bi_encoder_model}")
+    print(f"Database: {db_path}")
+    print(f"Include meta: {include_meta}")
+    print(f"{'='*60}\n")
 
-    # Load models once at the start
-    initialize_models()
+    # Load the specific model for this evaluation
+    # (Pass parameters to override config.toml defaults)
+    initialize_models(model_name=bi_encoder_model, include_meta=include_meta)
 
     # Load config
     config = toml.load("config.toml")
@@ -86,7 +97,8 @@ def evaluate_semantic_search(
 
             correct_answer = query_item["script_text"]
             rows = semantic_search(
-                search_query, initial_k, initial_k_buffer=2, model_name=bi_encoder_model
+                search_query, initial_k, initial_k_buffer=2, 
+                model_name=bi_encoder_model, db_path=db_path
             )
 
             rows_df = pd.DataFrame(rows)
@@ -98,7 +110,8 @@ def evaluate_semantic_search(
             rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
             rows_df["cross_encoder_model"] = cross_encoder_model
             rows_df["bi_encoder_model"] = bi_encoder_model
-            rows_df["meta_data_included"] = meta_data
+            rows_df["db_tag"] = db_tag
+            rows_df["meta_data_included"] = include_meta
             rows_df["chunk_type"] = "window"  # Always window now
             rows_df["chunk_size"] = chunk_size
             rows_df["overlap"] = overlap

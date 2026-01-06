@@ -77,12 +77,17 @@ def iter_windows(batch_size: int = 500):
         con.close()
         
 
-def get_scene_from_id(scene_ids: tuple) -> dict:
-    """Fetch scene text for given scene IDs."""
+def get_scene_from_id(scene_ids: tuple, db_path: str = None) -> dict:
+    """Fetch scene text for given scene IDs.
+    
+    Args:
+        scene_ids: Tuple of scene IDs to fetch
+        db_path: Optional explicit database path (for evaluation across multiple dbs)
+    """
     if not scene_ids:
         return {}
 
-    con = get_db_connection()
+    con = get_db_connection(db_path=db_path)
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -110,7 +115,11 @@ def get_scene_from_id(scene_ids: tuple) -> dict:
         print(f"Error in get_scene_from_id: {e}")
         return {}
     finally:
-        return_db_connection(con)
+        # Return to pool (or close if using custom db_path)
+        if db_path is None:
+            return_db_connection(con)
+        else:
+            con.close()
         
         
 def batch_insert_into_vss_table(embeddings_data):
