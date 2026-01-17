@@ -64,9 +64,6 @@ def evaluate_semantic_search(
     config = toml.load("config.toml")
     initial_k = config["SEARCH"]["initial_k"]
     final_k = config["SEARCH"]["final_k"]
-    # output_path = config["EVALUATION"]["params"]["output_path"]
-    cross_encoder_model = config["EMBEDDING_MODEL"]["crossencoder_model"]
-    # bi_encoder_model = config["EMBEDDING_MODEL"]["model_name"]
     chunk_size = config["WINDOW"]["window_size"]
     overlap = config["WINDOW"]["step_size"]
 
@@ -108,7 +105,6 @@ def evaluate_semantic_search(
             rows_df["location_type"] = location_type
             rows_df["query_num"] = query_num
             rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
-            rows_df["cross_encoder_model"] = cross_encoder_model
             rows_df["bi_encoder_model"] = bi_encoder_model
             rows_df["db_tag"] = db_tag
             rows_df["meta_data_included"] = include_meta
@@ -138,7 +134,7 @@ def evaluate_semantic_search(
     # Create Dataframe:
     eval_df = pd.DataFrame(results)
     eval_df.sort_values(
-        by=["evaluation_id", "bi_encoder_model", "cross_encoder_model", "query"]
+        by=["evaluation_id", "bi_encoder_model", "query"]
     )
 
     # Save to CSV
