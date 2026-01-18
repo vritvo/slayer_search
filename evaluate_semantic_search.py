@@ -2,6 +2,7 @@ import pandas as pd
 import toml
 import os
 import argparse
+import glob
 from utils.search import semantic_search
 from utils.models import initialize_models
 from utils.database import get_db_path
@@ -28,6 +29,10 @@ def coordinate_evaluation(notes=""):
             time_stamp=now_str,
             notes=notes,
         )
+    
+    # Run meta-evaluation on the file we just created
+    eval_path = f"eval/evaluation_{now_str}.csv"
+    meta_evaluator(eval_path=eval_path, notes=notes)
 
     return
 
@@ -145,22 +150,51 @@ def evaluate_semantic_search(
     return eval_df
 
 
-def meta_evaluator(notes=""):
+def meta_evaluator(eval_path=None, notes=""):
+    """
+    Run meta-evaluation on evaluation results.
+    
+    Args:
+        eval_path (str, optional): Path to evaluation CSV file. If None, uses most recent 
+                                   evaluation_{timestamp}.csv file in eval/ directory.
+        notes (str, optional): Notes for this meta-evaluation run.
+    """
     # Load config
     config = toml.load("config.toml")
     initial_k = config["SEARCH"]["initial_k"]
     final_k = config["SEARCH"]["final_k"]
 
-    eval_path = config["EVALUATION"]["params"]["output_path"]
+    # Auto-detect most recent evaluation file if not provided
+    if eval_path is None:
+        eval_files = glob.glob("eval/evaluation_*.csv")
+        if not eval_files:
+            raise FileNotFoundError(
+                "No evaluation files found in eval/ directory. "
+                "Run an evaluation first or specify eval_path."
+            )
+        # Sort by modification time, most recent first
+        eval_path = max(eval_files, key=os.path.getmtime)
+        print(f"Using most recent evaluation file: {eval_path}")
+    
     eval_df = pd.read_csv(eval_path)
 
-    # Fill NaN values in notes column with empty string
+    # Fill NaN values
     eval_df["notes"] = eval_df["notes"].fillna("")
+    eval_df["db_tag"] = eval_df["db_tag"].fillna("")  
+    
+    # Print models found in the CSV
+    unique_models = eval_df[["bi_encoder_model", "db_tag", "meta_data_included"]].drop_duplicates()
+    print(f"\nFound {len(unique_models)} model configurations in CSV:")
+    for _, row in unique_models.iterrows():
+        print(f"  - {row['bi_encoder_model']} (db_tag: '{row['db_tag']}', meta: {row['meta_data_included']})")
+    print()
     meta_columns = [
         "evaluation_id",
         "query",
         "location_type",
         "bi_encoder_model",
+        "db_tag",
+        "meta_data_included",
         "chunk_size",
         "overlap",
         "initial_k",
@@ -169,13 +203,16 @@ def meta_evaluator(notes=""):
         "notes",
     ]
 
-    # 2) Calculate metrics for each query/evaluation combination
+    # 2) Calculate metrics for each query/evaluation/model combination
     query_metrics = []
 
-    for _, group in eval_df.groupby(["evaluation_id", "query", "location_type"]):
+    for _, group in eval_df.groupby(["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]):
         eval_id = group["evaluation_id"].iloc[0]
         query = group["query"].iloc[0]
         location_type = group["location_type"].iloc[0]
+        bi_encoder_model = group["bi_encoder_model"].iloc[0]
+        db_tag = group["db_tag"].iloc[0]
+        meta_data_included = group["meta_data_included"].iloc[0]
 
         # Check if correct answer is found in initial_k and final_k
         has_match_initial = group["correct_match"].any()
@@ -194,6 +231,9 @@ def meta_evaluator(notes=""):
                 "evaluation_id": eval_id,
                 "query": query,
                 "location_type": location_type,
+                "bi_encoder_model": bi_encoder_model,
+                "db_tag": db_tag,
+                "meta_data_included": meta_data_included,
                 "pct_correct_in_initial_k": 1 if has_match_initial else 0,
                 "pct_correct_in_final_k": 1 if has_match_final else 0,
                 "avg_rank_overall": rank_overall,  # Includes all queries, with initial_k + 1 for non-matches
@@ -207,7 +247,7 @@ def meta_evaluator(notes=""):
     # 3) Merge with metadata
     meta_data = eval_df[meta_columns].drop_duplicates()
     final_results = pd.merge(
-        query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type"]
+        query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]
     )
 
     # 4) Aggregate by evaluation (excluding query)
