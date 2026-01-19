@@ -86,10 +86,10 @@ def evaluate_semantic_search(
 
     query_num = 0
     for query_item in search_queries:
-        for location_type in [True, False]:
+        for query_location in [True, False]:
             query_text = query_item["query_text"]
 
-            if location_type:
+            if query_location:
                 location = query_item["location"] + ", "
             else:
                 location = ""
@@ -107,7 +107,7 @@ def evaluate_semantic_search(
 
             # Add metadata column
             rows_df["query"] = search_query
-            rows_df["location_type"] = location_type
+            rows_df["query_location"] = query_location
             rows_df["query_num"] = query_num
             rows_df["rank"] = rows_df.groupby("query").cumcount() + 1
             rows_df["bi_encoder_model"] = bi_encoder_model
@@ -175,7 +175,7 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
     meta_columns = [
         "evaluation_id",
         "query",
-        "location_type",
+        "query_location",
         "bi_encoder_model",
         "db_tag",
         "meta_data_included",
@@ -190,10 +190,10 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
     # Calculate metrics for each query/evaluation/model combination
     query_metrics = []
 
-    for _, group in eval_df.groupby(["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]):
+    for _, group in eval_df.groupby(["evaluation_id", "query", "query_location", "bi_encoder_model", "db_tag", "meta_data_included"]):
         eval_id = group["evaluation_id"].iloc[0]
         query = group["query"].iloc[0]
-        location_type = group["location_type"].iloc[0]
+        query_location = group["query_location"].iloc[0]
         bi_encoder_model = group["bi_encoder_model"].iloc[0]
         db_tag = group["db_tag"].iloc[0]
         meta_data_included = group["meta_data_included"].iloc[0]
@@ -214,7 +214,7 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
             {
                 "evaluation_id": eval_id,
                 "query": query,
-                "location_type": location_type,
+                "query_location": query_location,
                 "bi_encoder_model": bi_encoder_model,
                 "db_tag": db_tag,
                 "meta_data_included": meta_data_included,
@@ -231,7 +231,7 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
     # Merge with metadata
     meta_data = eval_df[meta_columns].drop_duplicates()
     merged_results = pd.merge(
-        query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]
+        query_metrics_df, meta_data, on=["evaluation_id", "query", "query_location", "bi_encoder_model", "db_tag", "meta_data_included"]
     )
 
     # Save query-level results (before aggregation) for detailed analysis
@@ -311,24 +311,5 @@ def meta_evaluator(eval_path=None, notes=""):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="Evaluate semantic search")
-    # parser.add_argument(
-    #     "--notes",
-    #     "--n",
-    #     type=str,
-    #     default="",
-    #     help="Optional notes about this specific evaluation run",
-    # )
-    # parser.add_argument(
-    #     "--meta-only",
-    #     action="store_true",
-    #     default=False,
-    #     help="Only run meta evaluator, skip new evaluation",
-    # )
-    # args = parser.parse_args()
-
-    # if not args.meta_only:
-    #     evaluate_semantic_search(notes=args.notes)
-    # meta_evaluator(notes=args.notes)
 
     coordinate_evaluation()

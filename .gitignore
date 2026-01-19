@@ -27,5 +27,6 @@ notes/
 models/
 
 # eval
-eval/
+eval/evals 
+eval/evaluation_queries.toml
 search_output.csv
