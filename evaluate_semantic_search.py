@@ -150,44 +150,28 @@ def evaluate_semantic_search(
     return eval_df
 
 
-def meta_evaluator(eval_path=None, notes=""):
+def calculate_evaluation_metrics(eval_df, initial_k, final_k):
     """
-    Run meta-evaluation on evaluation results.
+    Calculate evaluation metrics from evaluation DataFrame.
+    
+    This function processes the raw evaluation results and calculates aggregated metrics
+    per model configuration.
     
     Args:
-        eval_path (str, optional): Path to evaluation CSV file. If None, uses most recent 
-                                   evaluation_{timestamp}.csv file in eval/ directory.
-        notes (str, optional): Notes for this meta-evaluation run.
+        eval_df (pd.DataFrame): Raw evaluation results DataFrame
+        initial_k (int): Value of initial_k used in evaluation
+        final_k (int): Value of final_k used in evaluation
+    
+    Returns:
+        tuple: (aggregated_df, query_metrics_df) where:
+            - aggregated_df: Aggregated metrics per model configuration
+            - query_metrics_df: Per-query metrics before aggregation (for detailed analysis)
     """
-    # Load config
-    config = toml.load("config.toml")
-    initial_k = config["SEARCH"]["initial_k"]
-    final_k = config["SEARCH"]["final_k"]
-
-    # Auto-detect most recent evaluation file if not provided
-    if eval_path is None:
-        eval_files = glob.glob("eval/evaluation_*.csv")
-        if not eval_files:
-            raise FileNotFoundError(
-                "No evaluation files found in eval/ directory. "
-                "Run an evaluation first or specify eval_path."
-            )
-        # Sort by modification time, most recent first
-        eval_path = max(eval_files, key=os.path.getmtime)
-        print(f"Using most recent evaluation file: {eval_path}")
-    
-    eval_df = pd.read_csv(eval_path)
-
     # Fill NaN values
+    eval_df = eval_df.copy()
     eval_df["notes"] = eval_df["notes"].fillna("")
-    eval_df["db_tag"] = eval_df["db_tag"].fillna("")  
+    eval_df["db_tag"] = eval_df["db_tag"].fillna("")
     
-    # Print models found in the CSV
-    unique_models = eval_df[["bi_encoder_model", "db_tag", "meta_data_included"]].drop_duplicates()
-    print(f"\nFound {len(unique_models)} model configurations in CSV:")
-    for _, row in unique_models.iterrows():
-        print(f"  - {row['bi_encoder_model']} (db_tag: '{row['db_tag']}', meta: {row['meta_data_included']})")
-    print()
     meta_columns = [
         "evaluation_id",
         "query",
@@ -203,7 +187,7 @@ def meta_evaluator(eval_path=None, notes=""):
         "notes",
     ]
 
-    # 2) Calculate metrics for each query/evaluation/model combination
+    # Calculate metrics for each query/evaluation/model combination
     query_metrics = []
 
     for _, group in eval_df.groupby(["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]):
@@ -244,14 +228,25 @@ def meta_evaluator(eval_path=None, notes=""):
 
     query_metrics_df = pd.DataFrame(query_metrics)
 
-    # 3) Merge with metadata
+    # Merge with metadata
     meta_data = eval_df[meta_columns].drop_duplicates()
-    final_results = pd.merge(
+    merged_results = pd.merge(
         query_metrics_df, meta_data, on=["evaluation_id", "query", "location_type", "bi_encoder_model", "db_tag", "meta_data_included"]
     )
 
-    # 4) Aggregate by evaluation (excluding query)
-    meta_columns.remove("query")
+    # Save query-level results (before aggregation) for detailed analysis
+    # Convert percentages to actual percentages (0-100) for query-level data
+    query_metrics_with_meta = merged_results.copy()
+    query_metrics_with_meta["pct_correct_in_initial_k"] = (
+        query_metrics_with_meta["pct_correct_in_initial_k"] * 100
+    )
+    query_metrics_with_meta["pct_correct_in_final_k"] = (
+        query_metrics_with_meta["pct_correct_in_final_k"] * 100
+    )
+    
+    # Aggregate by evaluation (excluding query)
+    meta_columns_for_agg = meta_columns.copy()
+    meta_columns_for_agg.remove("query")
     aggregation_funcs = {
         "pct_correct_in_initial_k": "mean",
         "pct_correct_in_final_k": "mean",
@@ -260,17 +255,59 @@ def meta_evaluator(eval_path=None, notes=""):
         "rank_if_in_final_k": "mean",  # Only averages non-null values
     }
 
-    final_results = final_results.groupby(meta_columns).agg(aggregation_funcs)
+    aggregated = merged_results.groupby(meta_columns_for_agg).agg(aggregation_funcs)
 
-    # Convert percentages to actual percentages (0-100)
-    final_results["pct_correct_in_initial_k"] = (
-        final_results["pct_correct_in_initial_k"] * 100
+    # Convert percentages to actual percentages (0-100) for aggregated data
+    aggregated["pct_correct_in_initial_k"] = (
+        aggregated["pct_correct_in_initial_k"] * 100
     )
-    final_results["pct_correct_in_final_k"] = (
-        final_results["pct_correct_in_final_k"] * 100
+    aggregated["pct_correct_in_final_k"] = (
+        aggregated["pct_correct_in_final_k"] * 100
     )
 
-    final_results.to_csv("eval/meta_evaluation.csv")
+    return aggregated.reset_index(), query_metrics_with_meta
+
+
+def meta_evaluator(eval_path=None, notes=""):
+    """
+    Run meta-evaluation on evaluation results and save to CSV.
+    
+    Args:
+        eval_path (str, optional): Path to evaluation CSV file. If None, uses most recent 
+                                   evaluation_{timestamp}.csv file in eval/ directory.
+        notes (str, optional): Notes for this meta-evaluation run.
+    """
+    # Load config
+    config = toml.load("config.toml")
+    initial_k = config["SEARCH"]["initial_k"]
+    final_k = config["SEARCH"]["final_k"]
+
+    # Auto-detect most recent evaluation file if not provided
+    if eval_path is None:
+        eval_files = glob.glob("eval/evaluation_*.csv")
+        if not eval_files:
+            raise FileNotFoundError(
+                "No evaluation files found in eval/ directory. "
+                "Run an evaluation first or specify eval_path."
+            )
+        # Sort by modification time, most recent first
+        eval_path = max(eval_files, key=os.path.getmtime)
+        print(f"Using most recent evaluation file: {eval_path}")
+    
+    eval_df = pd.read_csv(eval_path)
+
+    # Print models found in the CSV
+    unique_models = eval_df[["bi_encoder_model", "db_tag", "meta_data_included"]].drop_duplicates()
+    print(f"\nFound {len(unique_models)} model configurations in CSV:")
+    for _, row in unique_models.iterrows():
+        print(f"  - {row['bi_encoder_model']} (db_tag: '{row['db_tag']}', meta: {row['meta_data_included']})")
+    print()
+    
+    # Calculate metrics using shared function
+    aggregated, _ = calculate_evaluation_metrics(eval_df, initial_k, final_k)
+    
+    # Save to CSV
+    aggregated.to_csv("eval/meta_evaluation.csv")
 
 
 if __name__ == "__main__":
