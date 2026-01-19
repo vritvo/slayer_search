@@ -206,9 +206,12 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
         if has_match_initial:
             rank_if_match = group[group["correct_match"]]["rank"].iloc[0]
             rank_overall = rank_if_match
+            # Calculate reciprocal rank for MRR (1/rank if found, 0 if not found)
+            reciprocal_rank = 1.0 / rank_if_match
         else:
             rank_if_match = None
             rank_overall = initial_k + 1
+            reciprocal_rank = 0.0
 
         query_metrics.append(
             {
@@ -218,8 +221,9 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
                 "bi_encoder_model": bi_encoder_model,
                 "db_tag": db_tag,
                 "meta_data_included": meta_data_included,
-                "pct_correct_in_initial_k": 1 if has_match_initial else 0,
-                "pct_correct_in_final_k": 1 if has_match_final else 0,
+                "recall_at_initial_k": 1 if has_match_initial else 0,  # Recall@K: TP/(TP+FN) where TP=1 if found in top K, 0 otherwise (1 relevant item per query)
+                "recall_at_final_k": 1 if has_match_final else 0,
+                "mrr": reciprocal_rank,  # Mean Reciprocal Rank: 1/rank of first correct answer, 0 if not found
                 "avg_rank_overall": rank_overall,  # Includes all queries, with initial_k + 1 for non-matches
                 "rank_if_in_initial_k": rank_if_match if has_match_initial else None,
                 "rank_if_in_final_k": rank_if_match if has_match_final else None,
@@ -235,21 +239,22 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
     )
 
     # Save query-level results (before aggregation) for detailed analysis
-    # Convert percentages to actual percentages (0-100) for query-level data
+    # Convert recall to percentages (0-100) for query-level data
     query_metrics_with_meta = merged_results.copy()
-    query_metrics_with_meta["pct_correct_in_initial_k"] = (
-        query_metrics_with_meta["pct_correct_in_initial_k"] * 100
+    query_metrics_with_meta["recall_at_initial_k"] = (
+        query_metrics_with_meta["recall_at_initial_k"] * 100
     )
-    query_metrics_with_meta["pct_correct_in_final_k"] = (
-        query_metrics_with_meta["pct_correct_in_final_k"] * 100
+    query_metrics_with_meta["recall_at_final_k"] = (
+        query_metrics_with_meta["recall_at_final_k"] * 100
     )
     
     # Aggregate by evaluation (excluding query)
     meta_columns_for_agg = meta_columns.copy()
     meta_columns_for_agg.remove("query")
     aggregation_funcs = {
-        "pct_correct_in_initial_k": "mean",
-        "pct_correct_in_final_k": "mean",
+        "recall_at_initial_k": "mean",
+        "recall_at_final_k": "mean",
+        "mrr": "mean",  # Mean Reciprocal Rank
         "avg_rank_overall": "mean",  # Includes all queries, with initial_k + 1 for non-matches
         "rank_if_in_initial_k": "mean",  # Only averages non-null values
         "rank_if_in_final_k": "mean",  # Only averages non-null values
@@ -257,12 +262,12 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
 
     aggregated = merged_results.groupby(meta_columns_for_agg).agg(aggregation_funcs)
 
-    # Convert percentages to actual percentages (0-100) for aggregated data
-    aggregated["pct_correct_in_initial_k"] = (
-        aggregated["pct_correct_in_initial_k"] * 100
+    # Convert recall to percentages (0-100) for aggregated data
+    aggregated["recall_at_initial_k"] = (
+        aggregated["recall_at_initial_k"] * 100
     )
-    aggregated["pct_correct_in_final_k"] = (
-        aggregated["pct_correct_in_final_k"] * 100
+    aggregated["recall_at_final_k"] = (
+        aggregated["recall_at_final_k"] * 100
     )
 
     return aggregated.reset_index(), query_metrics_with_meta
