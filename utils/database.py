@@ -9,6 +9,26 @@ _pool_lock = Lock()
 _pool_size = 5
 
 
+def get_model_dim(model_name: str) -> int:
+    """Look up embedding dimension for a model.
+    Args:
+        model_name: The model name (e.g., "all-MiniLM-L6-v2")
+    Returns:
+        The embedding dimension for the model
+    """
+    config = toml.load("config.toml")
+    dimensions = config["EMBEDDING_MODEL"]["dimensions"]
+    
+    if model_name not in dimensions:
+        raise KeyError(
+            f"Model '{model_name}' not found in config dimensions lookup. "
+            f"Add it to [EMBEDDING_MODEL.dimensions] in config.toml. "
+            f"Available models: {list(dimensions.keys())}"
+        )
+    
+    return dimensions[model_name]
+
+
 def get_db_path(model_name: str, include_meta: bool, db_tag: str = "") -> str:
     """Derive database path from model configuration.
     
@@ -115,11 +135,12 @@ def init_scene_tables():
 def init_window_tables():
     """Initialize the window table and VSS virtual table."""
     config = toml.load("config.toml")
+    model_name = config["EMBEDDING_MODEL"]["model_name"]
 
     con = get_db_connection()
     cur = con.cursor()
 
-    embedding_dim = config["EMBEDDING_MODEL"]["model_dim"]
+    embedding_dim = get_model_dim(model_name)
 
     # Create the window table
     cur.execute("""
