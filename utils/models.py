@@ -90,9 +90,18 @@ def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=F
     print("Models loaded successfully")
 
 
-def make_embeddings():
-    """Create embeddings for window chunks and insert into DB."""
+def make_embeddings(include_meta: bool = None):
+    """Create embeddings for window chunks and insert into DB.
+    
+    Args:
+        include_meta: Whether to include location metadata in embeddings. If None, reads from config.
+    """
     overall_start = time.time()
+    
+    # Get include_meta from config if not provided
+    if include_meta is None:
+        config = toml.load("config.toml")
+        include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
     
     print("Clearing window_vss table...")
     clear_table("window_vss")
@@ -111,6 +120,7 @@ def make_embeddings():
     # Verify device
     print(f"\nModel: {model_name}")
     print(f"Device: {model.device}")
+    print(f"Including metadata: {include_meta}")
 
     if model_name.startswith("nomic"):
         doc_formatting = "search_document: "
@@ -122,9 +132,9 @@ def make_embeddings():
     all_chunks = []
     all_ids = []
     for db_chunk_row in iter_chunk:
-        # Build embedded text with optional location prefix
+        # Build embedded text with optional location prefix (only if include_meta is True)
         location_prefix = ""
-        if db_chunk_row.get("location_descr"):
+        if include_meta and db_chunk_row.get("location_descr"):
             location_prefix = f"Location: {db_chunk_row['location_descr']}\n"
 
         embedded_text = f"{doc_formatting}\nEpisode: {db_chunk_row['file_name']}\n{location_prefix}Text: \n{db_chunk_row['text']}"
@@ -206,7 +216,9 @@ def make_embeddings():
         print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
 
         # Persist for reuse (both indexing and queries will need the same tensor)
-        torch.save(context_embeddings, "buffy_dataset_context.pt")
+        context_file = f"buffy_dataset_context{'_no_meta' if not include_meta else ''}.pt"
+        torch.save(context_embeddings, context_file)
+        print(f"Saved context embeddings to: {context_file}")
 
         # Update the cached embeddings in global storage
         _models["context_embeddings"] = context_embeddings
