@@ -111,9 +111,60 @@ def return_db_connection(con):
             con.close()
 
 
-def init_scene_tables():
-    """Initialize the scene table (needed for data processing)."""
-    con = get_db_connection()
+def _resolve_model_config(model_name: str = None, include_meta: bool = None, db_tag: str = None):
+    """Resolve model configuration parameters with all-or-nothing validation.
+    
+    Args:
+        model_name: Optional model name. If any parameter is provided, all three must be provided.
+        include_meta: Optional flag for including metadata. If any parameter is provided, all three must be provided.
+        db_tag: Optional experiment tag. If any parameter is provided, all three must be provided.
+    
+    Returns:
+        tuple: (model_name, include_meta, db_tag, db_path) - all resolved values
+    
+    Raises:
+        ValueError: If only some parameters are provided (must provide all or none).
+    """
+    # All-or-nothing: if any parameter is provided, all must be provided (otherwise, config defaults are used)
+    params_provided = [model_name is not None, include_meta is not None, db_tag is not None]
+    if any(params_provided) and not all(params_provided):
+        missing = []
+        if model_name is None:
+            missing.append("model_name")
+        if include_meta is None:
+            missing.append("include_meta")
+        if db_tag is None:
+            missing.append("db_tag")
+        raise ValueError(
+            f"Must provide all three parameters (model_name, include_meta, db_tag) or none. "
+            f"Missing: {', '.join(missing)}. "
+            f"This prevents accidentally inheriting config values (like db_tag) meant for a different model."
+        )
+    
+    # If no params provided, read all from config
+    if not any(params_provided):
+        config = toml.load("config.toml")
+        model_name = config["EMBEDDING_MODEL"]["model_name"]
+        include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
+        db_tag = config["EMBEDDING_MODEL"].get("db_tag", "")
+    
+    db_path = get_db_path(model_name, include_meta, db_tag)
+    return model_name, include_meta, db_tag, db_path
+
+
+def init_scene_tables(model_name: str = None, include_meta: bool = None, db_tag: str = None):
+    """Initialize the scene table (needed for data processing).
+    
+    Args:
+        model_name: Optional model name. If any parameter is provided, all three must be provided.
+        include_meta: Optional flag for including metadata. If any parameter is provided, all three must be provided.
+        db_tag: Optional experiment tag. If any parameter is provided, all three must be provided.
+    
+    Raises:
+        ValueError: If only some parameters are provided (must provide all or none).
+    """
+    _, _, _, db_path = _resolve_model_config(model_name, include_meta, db_tag)
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
 
     # Create the scene table
@@ -132,15 +183,22 @@ def init_scene_tables():
     con.close()
 
 
-def init_window_tables():
-    """Initialize the window table and VSS virtual table."""
-    config = toml.load("config.toml")
-    model_name = config["EMBEDDING_MODEL"]["model_name"]
-
-    con = get_db_connection()
+def init_window_tables(model_name: str = None, include_meta: bool = None, db_tag: str = None):
+    """Initialize the window table and VSS virtual table.
+    
+    Args:
+        model_name: Optional model name. If any parameter is provided, all three must be provided.
+        include_meta: Optional flag for including metadata. If any parameter is provided, all three must be provided.
+        db_tag: Optional experiment tag. If any parameter is provided, all three must be provided.
+    
+    Raises:
+        ValueError: If only some parameters are provided (must provide all or none).
+    """
+    resolved_model_name, _, _, db_path = _resolve_model_config(model_name, include_meta, db_tag)
+    embedding_dim = get_model_dim(resolved_model_name)
+    
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
-
-    embedding_dim = get_model_dim(model_name)
 
     # Create the window table
     cur.execute("""
