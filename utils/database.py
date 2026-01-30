@@ -223,9 +223,14 @@ def init_window_tables(model_name: str = None, include_meta: bool = None, db_tag
     con.close()
 
 
-def clear_table(table_name):
-    """Clear all data from a table."""
-    con = get_db_connection()
+def clear_table(table_name, db_path: str = None):
+    """Clear all data from a table.
+    
+    Args:
+        table_name: Name of the table to clear
+        db_path: Optional explicit database path. If None, reads from config.
+    """
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
     cur.execute(f"DELETE FROM {table_name}")
     con.commit()

@@ -8,10 +8,14 @@ import json
 from utils.models import tag_text
 
 
-def make_scene_chunks():
-    """Process script chunks and insert them row-by-row into the database."""
+def make_scene_chunks(db_path: str = None):
+    """Process script chunks and insert them row-by-row into the database.
+    
+    Args:
+        db_path: Optional explicit database path. If None, reads from config.
+    """
 
-    con = get_db_connection()
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
 
     table_name = "scene"
@@ -169,10 +173,14 @@ def make_window_chunk(chunk):
     return script_chunks, slices
 
 
-def iter_windows_from_scenes():
-    """Read each scene, make windows from them."""
+def iter_windows_from_scenes(db_path: str = None):
+    """Read each scene, make windows from them.
+    
+    Args:
+        db_path: Optional explicit database path. If None, reads from config.
+    """
 
-    for scene in iter_scenes():
+    for scene in iter_scenes(db_path=db_path):
         windows, slices = make_window_chunk(scene["text"])
 
         for w_idx, (w_text, slice) in enumerate(zip(windows, slices)):
@@ -186,10 +194,14 @@ def iter_windows_from_scenes():
             }
 
 
-def insert_window_db():
-    """Insert window chunks into the database using batch processing."""
+def insert_window_db(db_path: str = None):
+    """Insert window chunks into the database using batch processing.
+    
+    Args:
+        db_path: Optional explicit database path. If None, reads from config.
+    """
 
-    con = get_db_connection()
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
 
     table_name = "window"
@@ -198,7 +210,7 @@ def insert_window_db():
     total_processed = 0
 
     try:
-        for row in iter_windows_from_scenes():
+        for row in iter_windows_from_scenes(db_path=db_path):
             batch.append(
                 (
                     row["scene_id"],
@@ -256,13 +268,14 @@ def convert_scene_splits_to_dict(all_scene_splits: list[dict]) -> dict:
     return exception_scene_dict
 
 
-def load_locations_from_json(json_path="scene_locations.json"):
+def load_locations_from_json(json_path="scene_locations.json", db_path: str = None):
     """
     Load location data from JSON and populate the scene table.
     This is run at the start of each pipeline rebuild to restore location data.
     
     Args:
         json_path: Path to JSON file containing location data
+        db_path: Optional explicit database path. If None, reads from config.
     """
     try:
         with open(json_path, "r") as f:
@@ -272,7 +285,7 @@ def load_locations_from_json(json_path="scene_locations.json"):
             print("Location JSON is empty")
             return
         
-        con = get_db_connection()
+        con = get_db_connection(db_path=db_path)
         cur = con.cursor()
         
         updated_count = 0
@@ -295,7 +308,7 @@ def load_locations_from_json(json_path="scene_locations.json"):
         print(f"Error loading locations from JSON: {e}")
 
 
-def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json"):
+def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json", db_path: str = None):
     """
     Generate and store location tags for NEW scenes only.
     Saves ONLY to JSON (persistent storage). Database is populated later by load_locations_from_json().
@@ -305,6 +318,7 @@ def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json"):
         filter_episodes: Optional list of episode names to process (e.g., ["1x12 Prophecy Girl"])
                         If None, processes all scenes.
         json_path: Path to JSON file for persistent location storage
+        db_path: Optional explicit database path. If None, reads from config.
     """
     
     # Load existing location data from JSON
@@ -316,7 +330,7 @@ def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json"):
     except FileNotFoundError:
         print(f"No existing location data found - will create new {json_path}")
     
-    con = get_db_connection()
+    con = get_db_connection(db_path=db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     
@@ -326,7 +340,7 @@ def tag_scene_locations(filter_episodes=None, json_path="scene_locations.json"):
     already_tagged_count = 0
     
     try:
-        for scene_row in iter_scenes():
+        for scene_row in iter_scenes(db_path=db_path):
             # Skip if filtering and this episode isn't in the list
             if filter_episodes and scene_row["file_name"] not in filter_episodes:
                 skipped_count += 1

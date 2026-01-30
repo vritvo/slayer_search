@@ -3,9 +3,14 @@ import json
 from utils.database import get_db_connection, return_db_connection 
 import time
 
-def iter_scenes(batch_size: int = 500):
-    """Yield scene rows from the DB in batches as dicts. Used for data processing."""
-    con = get_db_connection()
+def iter_scenes(batch_size: int = 500, db_path: str = None):
+    """Yield scene rows from the DB in batches as dicts. Used for data processing.
+    
+    Args:
+        batch_size: Number of rows to fetch per batch
+        db_path: Optional explicit database path. If None, reads from config.
+    """
+    con = get_db_connection(db_path=db_path)
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -34,9 +39,14 @@ def iter_scenes(batch_size: int = 500):
     finally:
         con.close()
 
-def iter_windows(batch_size: int = 500):
-    """Yield window rows from the DB in batches as dicts with location info from parent scene."""
-    con = get_db_connection()
+def iter_windows(batch_size: int = 500, db_path: str = None):
+    """Yield window rows from the DB in batches as dicts with location info from parent scene.
+    
+    Args:
+        batch_size: Number of rows to fetch per batch
+        db_path: Optional explicit database path. If None, reads from config.
+    """
+    con = get_db_connection(db_path=db_path)
     try:
         con.row_factory = sqlite3.Row
         cur = con.cursor()
@@ -122,9 +132,14 @@ def get_scene_from_id(scene_ids: tuple, db_path: str = None) -> dict:
             con.close()
         
         
-def batch_insert_into_vss_table(embeddings_data):
-    """Insert multiple embeddings into the VSS virtual table using batch processing."""
-    con = get_db_connection()
+def batch_insert_into_vss_table(embeddings_data, db_path: str = None):
+    """Insert multiple embeddings into the VSS virtual table using batch processing.
+    
+    Args:
+        embeddings_data: List of (row_id, embedding) tuples to insert
+        db_path: Optional explicit database path. If None, reads from config.
+    """
+    con = get_db_connection(db_path=db_path)
     cur = con.cursor()
 
     batch_size = 1000

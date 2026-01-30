@@ -90,31 +90,44 @@ def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=F
     print("Models loaded successfully")
 
 
-def make_embeddings(include_meta: bool = None):
+def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: str = None):
     """Create embeddings for window chunks and insert into DB.
     
     Args:
         include_meta: Whether to include location metadata in embeddings. If None, reads from config.
+        model_name: Optional model name. If any of model_name, include_meta, db_tag is provided, all three must be provided.
+        db_tag: Optional experiment tag. If any is provided, all three must be provided.
     """
     overall_start = time.time()
     
-    # Get include_meta from config if not provided
-    if include_meta is None:
+    # Resolve model configuration - if any param is provided, all must be provided
+    from utils.database import get_db_path, _resolve_model_config
+    
+    # If any param is provided, validate all-or-nothing and resolve
+    if model_name is not None or include_meta is not None or db_tag is not None:
+        resolved_model_name, resolved_include_meta, resolved_db_tag, db_path = _resolve_model_config(
+            model_name, include_meta, db_tag
+        )
+        model_name = resolved_model_name
+        include_meta = resolved_include_meta
+        db_tag = resolved_db_tag
+    else:
+        # All None - read from config
         config = toml.load("config.toml")
+        model_name = config["EMBEDDING_MODEL"]["model_name"]
         include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
+        db_tag = config["EMBEDDING_MODEL"].get("db_tag", "")
+        db_path = get_db_path(model_name, include_meta, db_tag)
     
     print("Clearing window_vss table...")
-    clear_table("window_vss")
+    clear_table("window_vss", db_path=db_path)
 
     # Collect all window data first to avoid connection conflicts
     print("Loading window data from database...")
     load_start = time.time()
-    iter_chunk = list(iter_windows())
+    iter_chunk = list(iter_windows(db_path=db_path))
     load_time = time.time() - load_start
     print(f"  Loaded {len(list(iter_chunk))} windows in {load_time:.2f}s")
-
-    config = toml.load("config.toml")
-    model_name = config["EMBEDDING_MODEL"]["model_name"]
     model = _models["bi_encoder"]
     
     # Verify device
@@ -142,6 +155,12 @@ def make_embeddings(include_meta: bool = None):
         all_ids.append(db_chunk_row["window_id"])
     prep_time = time.time() - prep_start
     print(f"  Prepared {len(all_chunks)} chunks in {prep_time:.2f}s")
+
+    if len(all_chunks) == 0:
+        raise ValueError(
+            f"No window chunks found in database at {db_path}. "
+            f"Make sure scene chunks and window chunks have been created in this database."
+        )
 
     print(f"\nCreating embeddings for {len(all_chunks)} window chunks...")
     print(f"  Average chunk length: {sum(len(c) for c in all_chunks) / len(all_chunks):.0f} chars")
@@ -266,7 +285,7 @@ def make_embeddings(include_meta: bool = None):
     # Actually insert the embeddings into the database
     print(f"\nInserting {len(embeddings_data)} embeddings into database...")
     insert_start = time.time()
-    batch_insert_into_vss_table(embeddings_data)
+    batch_insert_into_vss_table(embeddings_data, db_path=db_path)
     insert_time = time.time() - insert_start
     print(f"  Inserted all embeddings in {insert_time:.2f}s")
     
