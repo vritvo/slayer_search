@@ -31,7 +31,7 @@ def coordinate_evaluation(notes=""):
         )
     
     # Run meta-evaluation on the file we just created
-    eval_path = f"eval/evaluation_{now_str}.csv"
+    eval_path = f"eval/evals/evaluation_{now_str}.csv"
     meta_evaluator(eval_path=eval_path, notes=notes)
 
     return
@@ -79,7 +79,7 @@ def evaluate_semantic_search(
     # Collect all results first, then create DataFrame once
     results = pd.DataFrame()
 
-    output_path = f"eval/evaluation_{time_stamp}.csv"
+    output_path = f"eval/evals/evaluation_{time_stamp}.csv"
     print(output_path)
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -289,10 +289,10 @@ def meta_evaluator(eval_path=None, notes=""):
 
     # Auto-detect most recent evaluation file if not provided
     if eval_path is None:
-        eval_files = glob.glob("eval/evaluation_*.csv")
+        eval_files = glob.glob("eval/evals/evaluation_*.csv")
         if not eval_files:
             raise FileNotFoundError(
-                "No evaluation files found in eval/ directory. "
+                "No evaluation files found in eval/evals/ directory. "
                 "Run an evaluation first or specify eval_path."
             )
         # Sort by modification time, most recent first
@@ -312,7 +312,7 @@ def meta_evaluator(eval_path=None, notes=""):
     aggregated, _ = calculate_evaluation_metrics(eval_df, initial_k, final_k)
     
     # Save to CSV
-    aggregated.to_csv("eval/meta_evaluation.csv")
+    aggregated.to_csv("eval/evals/meta_evaluation.csv")
 
 
 if __name__ == "__main__":
