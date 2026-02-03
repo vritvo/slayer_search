@@ -14,12 +14,30 @@ from dotenv import load_dotenv
 _models = {}
 
 
-def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=False):
+def _get_context_filename(model_name: str, include_meta: bool, db_tag: str = "") -> str:
+    """Build context embedding filename for CDE models. Includes db_tag so each config has its own file.
+    
+    Args:
+        model_name: e.g. "jxm/cde-small-v2"
+        include_meta: Whether metadata (location) is included
+        db_tag: Experiment tag (e.g. "testing", "testing-x1")
+    
+    Returns:
+        Filename e.g. "buffy_dataset_context_cde-small-v2_testing_no_meta.pt"
+    """
+    base = model_name.split("/")[-1]
+    tag_part = f"_{db_tag}" if db_tag else ""
+    meta_part = "_no_meta" if not include_meta else ""
+    return f"buffy_dataset_context_{base}{tag_part}{meta_part}.pt"
+
+
+def initialize_models(model_name=None, include_meta=None, db_tag=None, use_gpu_for_building=False):
     """Load all models at startup and store them globally.
     
     Args:
         model_name: Model to load (e.g., "all-MiniLM-L6-v2"). If None, reads from config.toml.
         include_meta: Whether to load meta context embeddings for CDE models. If None, reads from config.
+        db_tag: Experiment tag for CDE context file (e.g. "testing"). If None, reads from config.
         use_gpu_for_building: If True, auto-detect and use best available GPU 
                              (CUDA/MPS) for batch embedding building.
                              If False, use CPU (better for single-query search).
@@ -33,6 +51,8 @@ def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=F
         model_name = config["EMBEDDING_MODEL"]["model_name"]
     if include_meta is None:
         include_meta = config["EMBEDDING_MODEL"].get("include_meta", True)
+    if db_tag is None:
+        db_tag = config["EMBEDDING_MODEL"].get("db_tag", "")
     
     # Choose device based on use case
     if use_gpu_for_building:
@@ -59,7 +79,7 @@ def initialize_models(model_name=None, include_meta=None, use_gpu_for_building=F
     elif model_name.startswith("jxm/cde"):
         _models["bi_encoder"] = SentenceTransformer(model_name, trust_remote_code=True, device=device)
         # Try to load context embeddings if they exist, but don't fail if they don't
-        context_file = f"buffy_dataset_context{'_no_meta' if not include_meta else ''}.pt"
+        context_file = _get_context_filename(model_name, include_meta, db_tag)
         try:
             _models["context_embeddings"] = torch.load(context_file)
             print(f"Loaded existing context embeddings from {context_file}")
@@ -235,7 +255,7 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
         print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
 
         # Persist for reuse (both indexing and queries will need the same tensor)
-        context_file = f"buffy_dataset_context{'_no_meta' if not include_meta else ''}.pt"
+        context_file = _get_context_filename(model_name, include_meta, db_tag)
         torch.save(context_embeddings, context_file)
         print(f"Saved context embeddings to: {context_file}")
 
