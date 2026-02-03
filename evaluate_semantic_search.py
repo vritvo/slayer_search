@@ -63,7 +63,9 @@ def evaluate_semantic_search(
 
     # Load the specific model for this evaluation
     # (Pass parameters to override config.toml defaults)
-    initialize_models(model_name=bi_encoder_model, include_meta=include_meta)
+    initialize_models(
+        model_name=bi_encoder_model, include_meta=include_meta, db_tag=db_tag
+    )
 
     # Load config
     config = toml.load("config.toml")

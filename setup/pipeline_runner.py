@@ -89,7 +89,12 @@ def run_full_pipeline(tag_locations=False, filter_episodes=None, use_gpu=False, 
     gc.collect()
 
     print(f"\n{5 if tag_locations else 4}. Creating window embeddings...")
-    initialize_models(model_name=model_name, include_meta=include_meta, use_gpu_for_building=use_gpu)
+    initialize_models(
+        model_name=model_name,
+        include_meta=include_meta,
+        db_tag=db_tag,
+        use_gpu_for_building=use_gpu,
+    )
     make_embeddings(include_meta=include_meta, model_name=model_name, db_tag=db_tag)  # Create embeddings for window chunks only
 
     # Print summary
