@@ -228,7 +228,7 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
                 "mrr": reciprocal_rank,  # Mean Reciprocal Rank: 1/rank of first correct answer, 0 if not found
                 "avg_rank_overall": rank_overall,  # Includes all queries, with initial_k + 1 for non-matches
                 "rank_if_in_initial_k": rank_if_match if has_match_initial else None,
-                "rank_if_in_final_k": rank_if_match if has_match_final else None,
+                "rank_if_in_final_k": rank_if_match if has_match_final else None,  # Only set when in top final_k; mean = avg rank when in final_k (misses excluded)
             }
         )
 
@@ -259,7 +259,7 @@ def calculate_evaluation_metrics(eval_df, initial_k, final_k):
         "mrr": "mean",  # Mean Reciprocal Rank
         "avg_rank_overall": "mean",  # Includes all queries, with initial_k + 1 for non-matches
         "rank_if_in_initial_k": "mean",  # Only averages non-null values
-        "rank_if_in_final_k": "mean",  # Only averages non-null values
+        "rank_if_in_final_k": "mean",  # Avg rank when answer is in top final_k (misses excluded from denominator)
     }
 
     aggregated = merged_results.groupby(meta_columns_for_agg).agg(aggregation_funcs)
