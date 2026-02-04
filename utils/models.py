@@ -165,12 +165,15 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
     all_chunks = []
     all_ids = []
     for db_chunk_row in iter_chunk:
-        # Build embedded text with optional location prefix (only if include_meta is True)
-        location_prefix = ""
-        if include_meta and db_chunk_row.get("location_descr"):
-            location_prefix = f"Location: {db_chunk_row['location_descr']}\n"
-
-        embedded_text = f"{doc_formatting}\nEpisode: {db_chunk_row['file_name']}\n{location_prefix}Text: \n{db_chunk_row['text']}"
+        if model_name.startswith("jxm/cde"):
+            # Phase 1: Original format from bb8102e (no location, no Episode/Text headers)
+            embedded_text = f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+        else:
+            # Non-CDE: current format with optional location prefix
+            location_prefix = ""
+            if include_meta and db_chunk_row.get("location_descr"):
+                location_prefix = f"Location: {db_chunk_row['location_descr']}\n"
+            embedded_text = f"{doc_formatting}\nEpisode: {db_chunk_row['file_name']}\n{location_prefix}Text: \n{db_chunk_row['text']}"
         all_chunks.append(embedded_text)
         all_ids.append(db_chunk_row["window_id"])
     prep_time = time.time() - prep_start
@@ -196,62 +199,46 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
     
     if model_name.startswith("jxm/cde"):
         print("Train Model 1")
-        # Train Model 1
-        # make the mini corpus.
-
-        # Divide chunks by season by creating a dict: {season: [chunks]}
-        seasons = {}
-        for chunk in all_chunks:
-            season = chunk.split("Episode: ")[1].split("x")[0]
-            if season not in seasons:
-                seasons[season] = []
-            seasons[season].append(chunk)
-        # Randomly shuffle the chunks in each season
-        for season in seasons:
-            random.shuffle(seasons[season])
-
+        # Phase 1: Original mini corpus sampling from bb8102e (random.sample, multiples=1)
         context_size = model[0].config.transductive_corpus_size
-        multiples = 2
+        mini_corpus = random.sample(all_chunks, k=context_size)
+        assert len(mini_corpus) == context_size
 
         start_time = time.time()
-
-        context_embeddings_multiple = []
-        for m in range(multiples):
-            mini_corpus = []
-
-            # Iterate over the chunks for each season, and sample evenly.
-            for season_name, season_chunks in seasons.items():
-                k = context_size // len(seasons)
-
-                # Check if we have enough chunks left in this season
-                if len(season_chunks) >= k:
-                    # Sample k chunks from the end (or could use random.sample)
-                    sampled_chunks = season_chunks[-k:]
-                    mini_corpus.extend(sampled_chunks)
-                    # Remove the used chunks from the season
-                    seasons[season_name] = season_chunks[:-k]
-                else:
-                    # If not enough chunks left, take all remaining
-                    mini_corpus.extend(season_chunks)
-                    seasons[season_name] = []
-
-            # In case of rounding issues or exhausted seasons, fill up to context_size
-            while len(mini_corpus) < context_size:
-                choice = random.choice(all_chunks)
-                if choice not in mini_corpus:
-                    mini_corpus.append(choice)
-
-            print(f"Mini corpus {m + 1} size: {len(mini_corpus)}")
-
-            # Compute the dataset context embeddings
-            context_embeddings = model.encode(
-                mini_corpus, prompt_name="document", convert_to_tensor=True
-            )
-            context_embeddings_multiple.append(context_embeddings)
-
-        context_embeddings = torch.mean(torch.stack(context_embeddings_multiple), dim=0)
-
+        context_embeddings = model.encode(
+            mini_corpus, prompt_name="document", convert_to_tensor=True
+        )
         end_time = time.time()
+
+        # ---- Commented out for Phase 1: season-based multiples logic (restore in Phase 4/5) ----
+        # # Divide chunks by season by creating a dict: {season: [chunks]}
+        # seasons = {}
+        # for chunk in all_chunks:
+        #     season = chunk.split("Episode: ")[1].split("x")[0]
+        #     if season not in seasons:
+        #         seasons[season] = []
+        #     seasons[season].append(chunk)
+        # for season in seasons:
+        #     random.shuffle(seasons[season])
+        # context_embeddings_multiple = []
+        # for m in range(multiples):
+        #     mini_corpus = []
+        #     for season_name, season_chunks in seasons.items():
+        #         k = context_size // len(seasons)
+        #         if len(season_chunks) >= k:
+        #             sampled_chunks = season_chunks[-k:]
+        #             mini_corpus.extend(sampled_chunks)
+        #             seasons[season_name] = season_chunks[:-k]
+        #         else:
+        #             mini_corpus.extend(season_chunks)
+        #             seasons[season_name] = []
+        #     while len(mini_corpus) < context_size:
+        #         choice = random.choice(all_chunks)
+        #         if choice not in mini_corpus:
+        #             mini_corpus.append(choice)
+        #     context_embeddings = model.encode(mini_corpus, prompt_name="document", convert_to_tensor=True)
+        #     context_embeddings_multiple.append(context_embeddings)
+        # context_embeddings = torch.mean(torch.stack(context_embeddings_multiple), dim=0)
         print(f"Computed context embeddings in {end_time - start_time:.2f} seconds.")
 
         # Persist for reuse (both indexing and queries will need the same tensor)
