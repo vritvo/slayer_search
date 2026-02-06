@@ -31,6 +31,17 @@ def _get_context_filename(model_name: str, include_meta: bool, db_tag: str = "")
     return f"buffy_dataset_context_{base}{tag_part}{meta_part}.pt"
 
 
+def _season_from_cde_chunk(chunk: str) -> str:
+    """Extract season key (1-7) from a CDE-format chunk. Chunk starts with 'episode: 1x02 ...'."""
+    if "episode:" not in chunk:
+        raise ValueError("CDE chunk missing 'episode:' prefix; cannot parse season")
+    if "x" not in chunk:
+        raise ValueError("CDE chunk missing 'x' in episode identifier; cannot parse season")
+    rest = chunk.split("episode:", 1)[1]
+    season = rest.split("x", 1)[0].strip()
+    return season if season in ("1", "2", "3", "4", "5", "6", "7") else ""
+
+
 def initialize_models(model_name=None, include_meta=None, db_tag=None, use_gpu_for_building=False):
     """Load all models at startup and store them globally.
     
@@ -202,9 +213,33 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
     
     if model_name.startswith("jxm/cde"):
         print("Train Model 1")
-        # Phase 1: Original mini corpus sampling from bb8102e (random.sample, multiples=1)
         context_size = model[0].config.transductive_corpus_size
-        mini_corpus = random.sample(all_chunks, k=context_size)
+        # Even season sampling 
+        seasons_dict = {}
+        for chunk in all_chunks:
+            
+            # Extract season from chunk
+            season = _season_from_cde_chunk(chunk)
+            if season not in seasons_dict:
+                seasons_dict[season] = []
+            seasons_dict[season].append(chunk)
+        num_seasons = len(seasons_dict)
+        k_per_season = context_size // num_seasons
+        remainder = context_size % num_seasons
+        mini_corpus = []
+        
+        # Sample chunks evenly from each season
+        for i, (season_name, season_chunks) in enumerate(sorted(seasons_dict.items())):
+            n = k_per_season + (1 if i < remainder else 0)
+            n = min(n, len(season_chunks))
+            sampled = random.sample(season_chunks, n)
+            mini_corpus.extend(sampled)
+        
+        # Fallback: if we don't have enough chunks, sample randomly from all chunks
+        while len(mini_corpus) < context_size:
+            choice = random.choice(all_chunks)
+            if choice not in mini_corpus:
+                mini_corpus.append(choice)
         assert len(mini_corpus) == context_size
 
         start_time = time.time()
@@ -213,7 +248,6 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
         )
         end_time = time.time()
 
-        # ---- Commented out for Phase 1: season-based multiples logic (restore in Phase 4/5) ----
         # # Divide chunks by season by creating a dict: {season: [chunks]}
         # seasons = {}
         # for chunk in all_chunks:
