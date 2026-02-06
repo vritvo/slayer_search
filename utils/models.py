@@ -166,8 +166,11 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
     all_ids = []
     for db_chunk_row in iter_chunk:
         if model_name.startswith("jxm/cde"):
-            # Phase 1: Original format from bb8102e (no location, no Episode/Text headers)
-            embedded_text = f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
+            # format: episode: {file}:\n{text}.optional location after episode 
+            if include_meta and db_chunk_row.get("location_descr"):
+                embedded_text = f"episode: {db_chunk_row['file_name']} ({db_chunk_row['location_descr']}):\n{db_chunk_row['text']}"
+            else:
+                embedded_text = f"episode: {db_chunk_row['file_name']}:\n{db_chunk_row['text']}"
         else:
             # Non-CDE: current format with optional location prefix
             location_prefix = ""
