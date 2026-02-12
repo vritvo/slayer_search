@@ -168,6 +168,8 @@ def make_embeddings(include_meta: bool = None, model_name: str = None, db_tag: s
 
     if model_name.startswith("nomic"):
         doc_formatting = "search_document: "
+    elif model_name.startswith("intfloat/"):
+        doc_formatting = "passage: "
     else:
         doc_formatting = ""
 

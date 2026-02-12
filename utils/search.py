@@ -66,6 +66,10 @@ def semantic_search(search_query: str, initial_k=10, initial_k_buffer=2, model_n
 
     if model_name.startswith("nomic"):
         search_query = "search_query: " + search_query
+    elif model_name.startswith("intfloat/"):
+        search_query = "query: " + search_query
+    elif model_name.startswith("BAAI/bge"):
+        search_query = "Represent this sentence for searching relevant passages: " + search_query
 
     if model_name.startswith("jxm/cde"):
         context_embeddings = _models.get("context_embeddings")
