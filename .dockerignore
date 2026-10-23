@@ -15,3 +15,17 @@ test_lang_extract.py
 *.db 
 
 !vector_db_all-MiniLM-L6-v2.db
+
+# Database-building pipeline and its inputs/outputs (the site only reads the .db)
+setup
+tests
+prompts.toml
+scene_locations.json
+*.pt
+
+# Local caches and other deploy configs
+**/__pycache__
+.pytest_cache
+**/.ipynb_checkpoints
+**/.DS_Store
+fly.toml

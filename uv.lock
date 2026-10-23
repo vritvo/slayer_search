@@ -354,22 +354,26 @@ dependencies = [
     { name = "einops" },
     { name = "flask" },
     { name = "gunicorn" },
-    { name = "ipykernel" },
-    { name = "jupyter" },
-    { name = "jupyterlab" },
     { name = "langextract" },
-    { name = "matplotlib" },
-    { name = "notebook" },
     { name = "numpy" },
     { name = "openai" },
     { name = "pandas" },
-    { name = "pytest" },
     { name = "rapidfuzz" },
     { name = "requests" },
     { name = "sentence-transformers" },
     { name = "sqlite-vss" },
     { name = "toml" },
     { name = "torch" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+    { name = "jupyter" },
+    { name = "jupyterlab" },
+    { name = "matplotlib" },
+    { name = "notebook" },
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -380,22 +384,26 @@ requires-dist = [
     { name = "einops" },
     { name = "flask" },
     { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "ipykernel" },
-    { name = "jupyter", specifier = ">=1.1.1" },
-    { name = "jupyterlab" },
     { name = "langextract" },
-    { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "notebook" },
     { name = "numpy" },
     { name = "openai" },
     { name = "pandas" },
-    { name = "pytest", specifier = ">=9.0.2" },
     { name = "rapidfuzz" },
     { name = "requests" },
     { name = "sentence-transformers" },
     { name = "sqlite-vss" },
     { name = "toml" },
     { name = "torch" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel" },
+    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "jupyterlab" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
+    { name = "notebook" },
+    { name = "pytest", specifier = ">=9.0.2" },
 ]
 
 [[package]]

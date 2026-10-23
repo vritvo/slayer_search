@@ -17,13 +17,18 @@ dependencies = [
     "sentence_transformers",
     "flask",
     "torch",
-    "jupyterlab",
-    "notebook",
-    "ipykernel",
     "einops",
     "langextract",
     "anthropic",
     "gunicorn>=23.0.0",
+]
+
+# Local-only tools (notebooks, tests, plotting). Not installed in the Docker image.
+[dependency-groups]
+dev = [
+    "jupyterlab",
+    "notebook",
+    "ipykernel",
     "pytest>=9.0.2",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.8",

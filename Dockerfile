@@ -12,7 +12,7 @@ RUN apt-get update && \
 COPY pyproject.toml .
 COPY uv.lock .
 
-RUN uv sync
+RUN uv sync --no-dev
 
 COPY . . 
 
@@ -21,7 +21,7 @@ EXPOSE 5002
 ENV SENTENCE_TRANSFORMERS_HOME="/app/models/"
 ENV HOST="0.0.0.0"
 
-CMD ["uv", "run", "app.py"]
+CMD ["uv", "run", "--no-dev", "app.py"]
 
 # TODO switch to use a WSGI
 # ENV TOKENIZERS_PARALLELISM=true
