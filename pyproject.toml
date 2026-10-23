@@ -23,6 +23,16 @@ dependencies = [
     "gunicorn>=23.0.0",
 ]
 
+# The server has no GPU, so install the CPU-only torch build on Linux (~200 MB
+# instead of ~7 GB of CUDA libraries). macOS keeps the default PyPI build.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 # Local-only tools (notebooks, tests, plotting). Not installed in the Docker image.
 [dependency-groups]
 dev = [
